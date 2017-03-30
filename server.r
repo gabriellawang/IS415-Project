@@ -26,10 +26,10 @@ busstop_data$BUS_STOP_N <- c(as.character(busstop_data$BUS_STOP_N))
 assign("data_file_name", NULL, envir = .GlobalEnv) 
 
 options(shiny.maxRequestSize=600*1024^2)
-shinyServer(function(input, output) {
+shinyServer(function(input, output, session) {
   
   get_data <- reactive(function(inFile){
-  
+    
     
     data_file_name <- get('data_file_name', envir=.GlobalEnv) 
     
@@ -39,16 +39,16 @@ shinyServer(function(input, output) {
         data_original <<- process_ride_data()(data_original)
         assign("data_file_name", "2016-02-16", envir = .GlobalEnv) 
       }
-        processed_ride_data <- data_original
+      processed_ride_data <- data_original
       
     }else{
       if (data_file_name != inFile$name){
-        processed_ride_data <- data_original
+        #processed_ride_data <- data_original
         data_original  <<- fread(inFile$datapath, header = T, sep = ",")
         data_original <<- process_ride_data()(data_original)
         assign("data_file_name", inFile$name, envir = .GlobalEnv) 
       }
-        processed_ride_data <- data_original
+      processed_ride_data <- data_original
     }  
     processed_ride_data
   })
@@ -56,7 +56,7 @@ shinyServer(function(input, output) {
   process_ride_data <- reactive(function(data_original){
     cat("process_ride_data() executed: ")
     ride_data <- data_original
-    ride_data <- transform(ride_data,RIDE_START_TIME = as.POSIXlt(ride_data$RIDE_START_TIME, format = "%H:%M:%S")$hour)
+    ride_data$RIDE_START_HOUR <- as.POSIXlt(ride_data$RIDE_START_TIME, format = "%H:%M:%S")$hour
     ride_data$BOARDING_STOP_STN <- c(as.character(ride_data$BOARDING_STOP_STN))
     ride_data$ALIGHTING_STOP_STN <- c(as.character(ride_data$ALIGHTING_STOP_STN))
     
@@ -74,6 +74,13 @@ shinyServer(function(input, output) {
     coordinates(processed_data)<-~X.ALIGHTING+Y.ALIGHTING
     processed_data$ALIGHTING_AREA <- over(processed_data,plan_area_sdf)$PLN_AREA_N
     
+    dates <-  unique(processed_data$RIDE_START_DATE)
+    hours <- unique(processed_data$RIDE_START_HOUR)
+    updateSelectInput(session,"date_1",choices = dates,selected = dates[1])
+    updateSelectInput(session,"date_2",choices = dates,selected = dates[1])
+    updateSelectInput(session,"hour_1",choices = hours,selected = hours[1])
+    updateSelectInput(session,"hour_2",choices = hours,selected = hours[2])
+    
     processed_data 
   })
   
@@ -88,40 +95,40 @@ shinyServer(function(input, output) {
   })
   
   create_plot <- reactive(function(myflows,filename){
-      
-        diag(myflows) <- 0
-        
-        # Select flows that represent at least 20% of the sum of outgoing flows for 
-        # each urban area.
-        flowSel1 <- firstflows(mat = myflows/rowSums(myflows)*100, method = "xfirst", k = 20)
-        
-        # Select the dominant flows (incoming flows criterion)
-        flowSel2 <- domflows(mat = myflows, w = colSums(myflows), k = 1)
-        
-        # Combine selections
-        flowSel <- myflows * flowSel1 * flowSel2
-        
-        # Node weights
-        inflows <- data.frame(id = colnames(myflows), w = colSums(myflows))
-        
-        # Plot dominant flows map
-        opar <- par(mar = c(0,0,2,0))
-        sp::plot(plan_area_sdf, col = "#cceae7")
-        plotMapDomFlows(mat = flowSel, spdf = plan_area_sdf, spdfid = "OBJECTID", w = inflows, wid = "id",
-                        wvar = "w", wcex = 0.05, add = TRUE,
-                        legend.flows.pos = "topright",
-                        legend.flows.title = "Nb. of commuters")
-        title(paste("Dominant Flows of Commuters",filename, sep = " - "))
-        mtext(text = "TEAM JSR, 2017", side = 4, line = -1, adj = 0.01, cex = 0.8)
-        par(opar)
-    })
-   
-    #output$statst <- renderLeaflet({
-      #tmap_leaflet(qtm(sub_data))
-        #leaflet() %>%
-        #addProviderTiles(providers$OpenStreetMap) %>%
-        #addMarkers(ride_data, lat = ride_data$X.BOARDING, lng=ride_data$Y.BOARDING, clusterOptions = markerClusterOptions())
-    #})
+    
+    diag(myflows) <- 0
+    
+    # Select flows that represent at least 20% of the sum of outgoing flows for 
+    # each urban area.
+    flowSel1 <- firstflows(mat = myflows/rowSums(myflows)*100, method = "xfirst", k = 20)
+    
+    # Select the dominant flows (incoming flows criterion)
+    flowSel2 <- domflows(mat = myflows, w = colSums(myflows), k = 1)
+    
+    # Combine selections
+    flowSel <- myflows * flowSel1 * flowSel2
+    
+    # Node weights
+    inflows <- data.frame(id = colnames(myflows), w = colSums(myflows))
+    
+    # Plot dominant flows map
+    opar <- par(mar = c(0,0,2,0))
+    sp::plot(plan_area_sdf, col = "#cceae7")
+    plotMapDomFlows(mat = flowSel, spdf = plan_area_sdf, spdfid = "OBJECTID", w = inflows, wid = "id",
+                    wvar = "w", wcex = 0.05, add = TRUE,
+                    legend.flows.pos = "topright",
+                    legend.flows.title = "Nb. of commuters")
+    title(paste("Dominant Flows of Commuters",filename, sep = " - "))
+    mtext(text = "TEAM JSR, 2017", side = 4, line = -1, adj = 0.01, cex = 0.8)
+    par(opar)
+  })
+  
+  #output$statst <- renderLeaflet({
+  #tmap_leaflet(qtm(sub_data))
+  #leaflet() %>%
+  #addProviderTiles(providers$OpenStreetMap) %>%
+  #addMarkers(ride_data, lat = ride_data$X.BOARDING, lng=ride_data$Y.BOARDING, clusterOptions = markerClusterOptions())
+  #})
   
   output$ride_table <- renderDataTable({
     get_data()(input$file1)
@@ -133,30 +140,36 @@ shinyServer(function(input, output) {
     processed_ride_data <- get_data()(input$file1)
     
     hour_1 <- input$hour_1
-    subset_data_1 <- subset(processed_ride_data,c(RIDE_START_TIME == hour_1))
+    date_1 <- input$date_1
+    subset_data_1 <- subset(processed_ride_data,c(RIDE_START_HOUR == hour_1 & RIDE_START_DATE == date_1))
     
     mat1 <- create_matrix()(subset_data_1)
     myflows1 <- prepflows(mat = mat1, i = "i", j = "j", fij = "fij")
     
     
-    output$matrix_table <- renderDataTable(mat1)
+    output$ride_table_1 <- renderDataTable(subset_data_1)
+    output$flow_matrix_table_1 <- renderDataTable(mat1)
     
     output$dominance_plot1 <- renderPlot({create_plot()(myflows1,hour_1)})
     statmat(mat = myflows1, output = "all", verbose = TRUE)
     
   })
   
-
+  
   output$stat2 <- renderPlot({
     cat("stat2 executed")
     
     processed_ride_data <- get_data()(input$file1)
     
     hour_2 <- input$hour_2
-    subset_data_2 <- subset(processed_ride_data,c(RIDE_START_TIME == hour_2))
+    date_2 <- input$date_2
+    subset_data_2 <- subset(processed_ride_data,c(RIDE_START_HOUR == hour_2 & RIDE_START_DATE == date_2))
+    
     mat2 <- create_matrix()(subset_data_2)
     myflows2 <- prepflows(mat = mat2, i = "i", j = "j", fij = "fij")
     
+    output$ride_table_2 <- renderDataTable(subset_data_2)
+    output$flow_matrix_table_2 <- renderDataTable(mat2)
     
     output$dominance_plot2 <- renderPlot({create_plot()(myflows2,hour_2)})
     statmat(mat = myflows2, output = "all", verbose = TRUE)
