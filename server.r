@@ -15,15 +15,14 @@ project_path <- wd
 shp_path <- "SHPFiles"
 attribute_path <- "attributeTables"
 
-plan_area_sdf <- readShapePoly(paste(project_path,sep = "/",paste(shp_path,sep = "/","MP14_PLNG_AREA_WEB_PL.shp")))
-
-busstop_data <- read.csv(paste(project_path,sep = "/",paste(attribute_path,sep = "/","busstop.csv")))
-#proj4string(boundary_sdf) <- "+proj=tmerc +lat_0=1.366666666666667 +lon_0=103.8333333333333 +k=1 +x_0=28001.642 +y_0=38744.572 +datum=WGS84 +units=m +no_defs +ellps=WGS84 +towgs84=0,0,0"
-
-busstop_data$BUS_STOP_N <- c(as.character(busstop_data$BUS_STOP_N))
 
 #----------------------------------------------------- Perform Once ----------------------------------------------------
-data_file_name <<- "two_days_data.csv"
+
+plan_area_sdf <- readShapePoly(paste(project_path,sep = "/",paste(shp_path,sep = "/","MP14_PLNG_AREA_WEB_PL.shp")))
+busstop_data <- read.csv(paste(project_path,sep = "/",paste(attribute_path,sep = "/","busstop.csv")))
+busstop_data$BUS_STOP_N <- c(as.character(busstop_data$BUS_STOP_N))
+
+data_file_name <<- "2016-02-16.csv"
 
 ride_data <-  fread(paste(project_path,sep = "/",paste(attribute_path,sep = "/",data_file_name)))
 ride_data$RIDE_START_HOUR <- as.POSIXlt(ride_data$RIDE_START_TIME, format = "%H:%M:%S")$hour
@@ -121,7 +120,7 @@ shinyServer(function(input, output, session){
     inflows <- data.frame(id = colnames(myflows), w = colSums(myflows))
     
     # Plot dominant flows map
-    opar <- par(mar = c(0,0,2,0))
+    opar <- par(mar = c(0,0,2,0), cex=2)
     sp::plot(plan_area_sdf, col = "#cceae7")
     plotMapDomFlows(mat = flowSel, spdf = plan_area_sdf, spdfid = "OBJECTID", w = inflows, wid = "id",
                     wvar = "w", wcex = 0.05, add = TRUE,

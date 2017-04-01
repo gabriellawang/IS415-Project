@@ -10,7 +10,7 @@
 library(shiny)
 library(shinydashboard)
 
- dashboardPage(
+dashboardPage(
   dashboardHeader(title = "Bus Rider Flow", titleWidth = 300),
   ## Sidebar content
   dashboardSidebar(
@@ -38,21 +38,24 @@ library(shinydashboard)
   
   dashboardBody(
     tabItems(
-      tabItem(tabName = "interactive1",
+      tabItem(tabName = "interactive1", align = "center",
               fluidRow(
-              h2("Interactive Analysis"),
-              box(
-                title = "Dominance plot - 1", solidHeader = TRUE,
-                collapsible = TRUE,
-                width = 8,
-                plotOutput("dominance_plot1",height= 600)
-              ),
-              box(
-                title = "Dominance plot - 2", solidHeader = TRUE,
-                collapsible = TRUE,
-                width = 8,
-                plotOutput("dominance_plot2",height= 600)
-              ))                
+                h2("Interactive Analysis"),
+                align="center",
+                box(
+                  title = "Dominance plot - 1", solidHeader = TRUE,
+                  collapsible = TRUE,
+                  width = 12,
+                  plotOutput("dominance_plot1",height= 600)
+                ),
+                
+                box(
+                  title = "Dominance plot - 2", solidHeader = TRUE,
+                  collapsible = TRUE,
+                  width = 12,
+                  plotOutput("dominance_plot2",height= 600)
+                )
+              )              
       ),
       
       tabItem(tabName = "interactive2",
@@ -60,12 +63,12 @@ library(shinydashboard)
               box(
                 title = h3("Statistic - 1"), solidHeader = TRUE,
                 collapsible = TRUE,
-                column(width = 6, plotOutput("stat1"))
+                plotOutput("stat1")
               ),
               box(
                 title = h3("Statistic - 2"), solidHeader = TRUE,
                 collapsible = TRUE,
-                column(width = 6, plotOutput("stat2"))
+                plotOutput("stat2")
               )              
       ),
       
