@@ -1,6 +1,3 @@
-library(shiny)
-library(tmap)
-library(leaflet)
 library(maptools)
 library(plyr)
 library(dplyr)
@@ -8,6 +5,8 @@ library(rgdal)
 library(flows)
 library(data.table)
 library(stats)
+library(shiny)
+library(shinydashboard)
 
 wd <- setwd(".")
 setwd(wd)
@@ -23,9 +22,8 @@ busstop_data <- read.csv(paste(project_path,sep = "/",paste(attribute_path,sep =
 
 busstop_data$BUS_STOP_N <- c(as.character(busstop_data$BUS_STOP_N))
 
-
 #----------------------------------------------------- Perform Once ----------------------------------------------------
-data_file_name <<- "2016-02-16.csv"
+data_file_name <<- "two_days_data.csv"
 
 ride_data <-  fread(paste(project_path,sep = "/",paste(attribute_path,sep = "/",data_file_name)))
 ride_data$RIDE_START_HOUR <- as.POSIXlt(ride_data$RIDE_START_TIME, format = "%H:%M:%S")$hour
@@ -52,13 +50,8 @@ original_data <<- processed_data
 first_load <<- TRUE
 #----------------------------------------------------- Perform Once End ----------------------------------------------------
 
-
-
-
-
-
 options(shiny.maxRequestSize=600*1024^2)
-shinyServer(function(input, output, session) {
+shinyServer(function(input, output, session){
   
   get_data <- reactive(function(inFile){
     if (!is.null(inFile)){
@@ -110,7 +103,7 @@ shinyServer(function(input, output, session) {
     mat
   })
   
-  create_plot <- reactive(function(myflows,filename, k){
+  create_plot <- reactive(function(myflows, date, hour, k){
     
     diag(myflows) <- 0
     
@@ -134,7 +127,7 @@ shinyServer(function(input, output, session) {
                     wvar = "w", wcex = 0.05, add = TRUE,
                     legend.flows.pos = "topright",
                     legend.flows.title = "Nb. of commuters")
-    title(paste("Dominant Flows of Commuters",filename, sep = " - "))
+    title(paste("Dominant Flows of Commuters",date,hour, sep = " - "))
     mtext(text = "TEAM JSR, 2017", side = 4, line = -1, adj = 0.01, cex = 0.8)
     par(opar)
   })
@@ -190,6 +183,23 @@ shinyServer(function(input, output, session) {
     req(input$date_1,input$hour_1, cancelOutput = TRUE)
     date_1 <- input$date_1
     hour_1 <- input$hour_1
+    
+    processed_ride_data <- get_data()(input$file1)
+    
+    subset_data_1 <- subset(processed_ride_data,RIDE_START_HOUR == hour_1 & RIDE_START_DATE == date_1)
+    
+    mat1 <- create_matrix()(subset_data_1)
+    myflows1 <- prepflows(mat = mat1, i = "i", j = "j", fij = "fij")
+    
+    
+    statmat(mat = myflows1, output = "all", verbose = TRUE)
+    
+  })
+  
+  output$dominance_plot1 <- renderPlot({
+    req(input$date_1,input$hour_1, cancelOutput = TRUE)
+    date_1 <- input$date_1
+    hour_1 <- input$hour_1
     K_1 <- input$K_1
     
     processed_ride_data <- get_data()(input$file1)
@@ -201,22 +211,32 @@ shinyServer(function(input, output, session) {
     
     output$ride_table_1 <- renderDataTable(subset_data_1@data)
     output$flow_matrix_table_1 <- renderDataTable(mat1)
-    
-    output$dominance_plot1 <- renderPlot({create_plot()(myflows1,hour_1,K_1)})
-    statmat(mat = myflows1, output = "all", verbose = TRUE)
-    
+    create_plot()(myflows1,date_1, hour_1,K_1)
   })
-  
   
   output$stat2 <- renderPlot({
     req(input$date_2,input$hour_2, cancelOutput = TRUE)
     date_2 <- input$date_2
     hour_2 <- input$hour_2
-    K_2 <- input$K_2
     
     processed_ride_data <- get_data()(input$file1)
     
+    subset_data_2 <- subset(processed_ride_data,RIDE_START_HOUR == hour_2 & RIDE_START_DATE == date_2)
     
+    mat2 <- create_matrix()(subset_data_2)
+    myflows2 <- prepflows(mat = mat2, i = "i", j = "j", fij = "fij")
+    
+    
+    statmat(mat = myflows2, output = "all", verbose = TRUE)
+    
+  })
+  
+  output$dominance_plot2 <- renderPlot({
+    req(input$date_2,input$hour_2, cancelOutput = TRUE)
+    date_2 <- input$date_2
+    hour_2 <- input$hour_2
+    K_2 <- input$K_2
+    processed_ride_data <- get_data()(input$file1)
     subset_data_2 <- subset(processed_ride_data,RIDE_START_HOUR == hour_2 & RIDE_START_DATE == date_2)
     
     mat2 <- create_matrix()(subset_data_2)
@@ -225,13 +245,7 @@ shinyServer(function(input, output, session) {
     output$ride_table_2 <- renderDataTable(subset_data_2@data)
     output$flow_matrix_table_2 <- renderDataTable(mat2)
     
-    output$dominance_plot2 <- renderPlot({create_plot()(myflows2,hour_2,K_2)})
-    
-    statmat(mat = myflows2, output = "all", verbose = TRUE)
-    
+    create_plot()(myflows2,date_2,hour_2,K_2)
   })
   
-  
-})#end shinyserver
-
-
+})
