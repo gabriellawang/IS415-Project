@@ -29,10 +29,8 @@ dashboardPage(
                icon = icon("bar-chart", lib = "font-awesome")),
       menuItem("Interactive Analysis - Stats", tabName = "interactive2", 
                icon = icon("bar-chart", lib = "font-awesome")),
-      menuItem("Flow Matrix Data - 1", tabName = "matrix1", icon = icon("th")),
-      menuItem("Ride Data - 1", tabName = "ride1", icon = icon("th")),
-      menuItem("Flow Matrix Data - 2", tabName = "matrix2", icon = icon("th")),
-      menuItem("Ride Data - 2", tabName = "ride2", icon = icon("th"))
+      menuItem("Flow Matrix Data", tabName = "matrix", icon = icon("th")),
+      menuItem("Ride Data", tabName = "ride", icon = icon("th"))
     )
   ),
   
@@ -60,6 +58,7 @@ dashboardPage(
       
       tabItem(tabName = "interactive2",
               h2("Interactive Analysis"),
+              align="center",
               box(
                 title = h3("Statistic - 1"), solidHeader = TRUE,
                 collapsible = TRUE,
@@ -72,17 +71,23 @@ dashboardPage(
               )              
       ),
       
-      tabItem(tabName = "matrix1", 
-              dataTableOutput('flow_matrix_table_1')
+      tabItem(tabName = "matrix", 
+        fluidRow(
+          tabBox(          
+            width=12,
+            tabPanel("Flow 1", dataTableOutput('flow_matrix_table_1')),
+            tabPanel("Flow 2", dataTableOutput('flow_matrix_table_2'))
+          )
+        )
       ),
-      tabItem(tabName = "ride1",
-              dataTableOutput('ride_table_1')
-      ),
-      tabItem(tabName = "matrix2",
-              dataTableOutput('flow_matrix_table_2')
-      ),
-      tabItem(tabName = "ride2",
-              dataTableOutput('ride_table_2')
+      tabItem(tabName = "ride",
+        fluidRow(
+          tabBox(          
+            width=12,
+            tabPanel("Ride 1", dataTableOutput('ride_table_1')),
+            tabPanel("Ride 2", dataTableOutput('ride_table_2'))
+          )
+        )
       )
     )
   )

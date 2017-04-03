@@ -23,6 +23,7 @@ busstop_data <- read.csv(paste(project_path,sep = "/",paste(attribute_path,sep =
 busstop_data$BUS_STOP_N <- c(as.character(busstop_data$BUS_STOP_N))
 
 data_file_name <<- "2016-02-16.csv"
+#data_file_name <<- "two_days_data.csv"
 
 ride_data <-  fread(paste(project_path,sep = "/",paste(attribute_path,sep = "/",data_file_name)))
 ride_data$RIDE_START_HOUR <- as.POSIXlt(ride_data$RIDE_START_TIME, format = "%H:%M:%S")$hour
