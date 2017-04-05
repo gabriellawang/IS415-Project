@@ -11,20 +11,23 @@ library(shiny)
 library(shinydashboard)
 
 dashboardPage(
-  dashboardHeader(title = "Bus Rider Flow", titleWidth = 300),
+  dashboardHeader(title = "Bus Rider Flow"),
   ## Sidebar content
   dashboardSidebar(
-    width = 300,
+    #width = 300,
     sidebarMenu(
       style = "position: fixed;",
-      width = 300,
-      fileInput(inputId="file1", "Choose File"),
-      selectInput(inputId = "date_1", label = "Date 1", choices = NULL, multiple = FALSE, selectize = TRUE),
-      selectInput(inputId = "hour_1", label = "Hour 1", choices = NULL, multiple = FALSE, selectize = TRUE),
-      sliderInput(inputId = "K_1", label ="K 1", min = 5, max = 100, value = 20, step = 5),
-      selectInput(inputId = "date_2", label = "Date 2", choices = NULL, multiple = FALSE, selectize = TRUE),
-      selectInput(inputId = "hour_2", label = "Hour 2", choices = NULL, multiple = FALSE, selectize = TRUE),
-      sliderInput(inputId = "K_2", label ="K 2", min = 5, max = 100, value = 20, step = 5),
+      #width = 300,
+      menuItem("Input Control Panel", icon = icon("keyboard-o", lib = "font-awesome"),
+               fileInput(inputId="file1", "Choose File"),
+               selectInput(inputId = "date_1", label = "Date 1", choices = NULL, multiple = FALSE, selectize = TRUE),
+               selectInput(inputId = "hour_1", label = "Hour 1", choices = NULL, multiple = FALSE, selectize = TRUE),
+               sliderInput(inputId = "K_1", label ="K 1", min = 5, max = 100, value = 20, step = 5),
+               selectInput(inputId = "date_2", label = "Date 2", choices = NULL, multiple = FALSE, selectize = TRUE),
+               selectInput(inputId = "hour_2", label = "Hour 2", choices = NULL, multiple = FALSE, selectize = TRUE),
+               sliderInput(inputId = "K_2", label ="K 2", min = 5, max = 100, value = 20, step = 5)
+      ),
+      
       menuItem("Interactive Analysis - Flows", tabName = "interactive1", 
                icon = icon("bar-chart", lib = "font-awesome")),
       menuItem("Interactive Analysis - Stats", tabName = "interactive2", 
