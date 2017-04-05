@@ -7,6 +7,7 @@ library(data.table)
 library(stats)
 library(shiny)
 library(shinydashboard)
+library(DT)
 
 wd <- setwd(".")
 setwd(wd)
