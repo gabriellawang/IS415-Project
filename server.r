@@ -25,7 +25,7 @@ plan_area_sdf2 <- readOGR(paste(project_path,sep = "/",paste(shp_path,sep = "/")
 plan_area_sdf <- readShapePoly(paste(project_path,sep = "/",paste(shp_path,sep = "/","MP14_PLNG_AREA_WEB_PL.shp")))
 sub_zone_sdf2 <- readOGR(paste(project_path,sep = "/",paste(shp_path,sep = "/")),"MP14_SUBZONE_NO_SEA_PL")
 sub_zone_sdf <- readShapePoly(paste(project_path,sep = "/",paste(shp_path,sep = "/","MP14_SUBZONE_NO_SEA_PL.shp")))
-busstop_data <- read.csv(paste(project_path,sep = "/",paste(attribute_path,sep = "/","busstop.csv")))
+busstop_data <- read.csv(paste(project_path,sep = "/",paste(attribute_path,sep = "/","busstop.csv")),stringsAsFactors = FALSE)
 busstop_data$BUS_STOP_N <- c(as.character(busstop_data$BUS_STOP_N))
 
 data_file_name <<- "2016-02-16.csv"
@@ -131,6 +131,7 @@ plotMapDomFlows2 <- function(mat, spdf, spdfid, w, wid, wvar, wcex = 0.05, legen
                     colors = c("red","orange", "yellow"), opacity = 1,
                     labels = c("Dominant", "Intermediary", 
                                "Dominated"))
+  
   map <<- addLayersControl(map, baseGroups = c("OSM (default)"),
                            overlayGroups = c("Points", "Segments", "Basemap"),
                            options = layersControlOptions(collapsed = FALSE))
@@ -231,7 +232,7 @@ shinyServer(function(input, output, session){
     ride_data
   })
   
-  create_matrix <- reactive(function(process_ride_data,type){
+  create_matrix <- reactive(function(process_ride_data,type,dates){
     if (type == "P_AREA"){
       
       mat <- data.frame ( table ( process_ride_data@data$BOARDING_AREA, process_ride_data@data$ALIGHTING_AREA,dnn = c("PLN_AREA_N","jname")))
@@ -247,6 +248,8 @@ shinyServer(function(input, output, session){
       mat <- merge(x = mat, y = sub_zone_sdf@data[c("SUBZONE_N", "OBJECTID")], by = "SUBZONE_N", all.x=TRUE)
       mat <-  plyr::rename(mat, c("SUBZONE_N"="jname","OBJECTID"= "j" ))
     }
+    mat <- transform(mat, fij =fij/ length(dates))
+    
     mat
   })
   
@@ -266,7 +269,7 @@ shinyServer(function(input, output, session){
     inflows <<- data.frame(id = colnames(myflows), w = colSums(myflows))
     
     # Plot dominant flows map
-    map <<- leaflet() %>% setView(lng = 103.8517, lat = 1.2908, zoom = 11) %>% addTiles(group = "OSM (default)")
+    map <<- leaflet() %>% setView(lng = 103.8517, lat = 1.2908, zoom = 11) %>% addProviderTiles(providers$OpenStreetMap)
     if (type == "P_AREA"){
       #proj4string(plan_area_sdf2) <- CRS("+proj=utm +ellps=WGS84 +datum=WGS84")
       plan_area_sdf2 <- spTransform(plan_area_sdf2, CRS("+proj=longlat"))
@@ -353,9 +356,9 @@ shinyServer(function(input, output, session){
     
     processed_ride_data <- get_data()(input$file1,input$type)
     
-    subset_data_1 <- subset(processed_ride_data,RIDE_START_HOUR == hour_1 & RIDE_START_DATE == date_1)
+    subset_data_1 <- subset(processed_ride_data,RIDE_START_HOUR == hour_1 & RIDE_START_DATE %in% date_1)
     
-    mat1 <- create_matrix()(subset_data_1,input$type)
+    mat1 <- create_matrix()(subset_data_1,input$type,date_1)
     myflows1 <- prepflows(mat = mat1, i = "i", j = "j", fij = "fij")
     
     
@@ -371,9 +374,9 @@ shinyServer(function(input, output, session){
     
     processed_ride_data <- get_data()(input$file1,input$type)
     
-    subset_data_1 <- subset(processed_ride_data,RIDE_START_HOUR == hour_1 & RIDE_START_DATE == date_1)
+    subset_data_1 <- subset(processed_ride_data,RIDE_START_HOUR == hour_1 & RIDE_START_DATE %in% date_1)
     
-    mat1 <- create_matrix()(subset_data_1,input$type)
+    mat1 <- create_matrix()(subset_data_1,input$type,date_1)
     myflows1 <- prepflows(mat = mat1, i = "i", j = "j", fij = "fij")
     
     output$ride_table_1 <- renderDataTable(subset_data_1@data)
@@ -386,17 +389,22 @@ shinyServer(function(input, output, session){
     processed_ride_data <- get_data()(input$file1,input$type)
     date_1 <- input$date_1
     hour_1 <- input$hour_1
-    subset_data_1 <- subset(processed_ride_data,RIDE_START_HOUR == hour_1 & RIDE_START_DATE == date_1)
     
+    subset_data_1 <- subset(processed_ride_data,RIDE_START_HOUR == hour_1 & RIDE_START_DATE %in% date_1)
     
+    length<-length(date_1)
+    cat("length = ",length)
     count_table <- table(subset_data_1$BOARDING_STOP_STN)
-    count_table <- sort(count_table, decreasing = TRUE)
-    count_table <- count_table[1 : 5]
-    count_table <- as.data.frame(count_table)
-    count_table <- inner_join(count_table,busstop_data,by=c("Var1"="BUS_STOP_N"))
-    plot_ly(data= count_table,x = count_table$Var1,y=count_table$Freq, type = 'bar') %>%
-      layout(title = "Top 5 Bus stop", yaxis = list(title = 'Number Of Rides'), xaxis = list(title = "Bus Stop Number"))
-  })
+    count_table <- as.data.frame(count_table,stringsAsFactors = FALSE)
+    
+    count_table$Freq <- count_table$Freq/length
+    count_table <- head(count_table[order(-count_table$Freq),],5)
+    count_table <- left_join(count_table,busstop_data,by=c("Var1"="BUS_STOP_N"),copy=TRUE,stringsAsFactors = FALSE)
+    count_table$LOC_DESC <- factor(count_table$LOC_DESC, levels = unique(count_table$LOC_DESC)[order(count_table$Freq, decreasing = TRUE)])
+    
+    plot_ly(data= count_table,x =~LOC_DESC,y=~Freq, type = 'bar') %>%
+      layout(title = "Top 5 Bus stop", yaxis = list(title = 'Number Of Rides'),xaxis = list(title = ''))
+  })  
   
   output$stat2 <- renderPlot({
     req(input$date_2,input$hour_2, cancelOutput = TRUE)
@@ -405,9 +413,9 @@ shinyServer(function(input, output, session){
     
     processed_ride_data <- get_data()(input$file1,input$type)
     
-    subset_data_2 <- subset(processed_ride_data,RIDE_START_HOUR == hour_2 & RIDE_START_DATE == date_2)
+    subset_data_2 <- subset(processed_ride_data,RIDE_START_HOUR == hour_2 & RIDE_START_DATE %in% date_2)
     
-    mat2 <- create_matrix()(subset_data_2,input$type)
+    mat2 <- create_matrix()(subset_data_2,input$type,date_2)
     myflows2 <- prepflows(mat = mat2, i = "i", j = "j", fij = "fij")
     
     
@@ -421,9 +429,9 @@ shinyServer(function(input, output, session){
     hour_2 <- input$hour_2
     K_2 <- input$K_2
     processed_ride_data <- get_data()(input$file1,input$type)
-    subset_data_2 <- subset(processed_ride_data,RIDE_START_HOUR == hour_2 & RIDE_START_DATE == date_2)
+    subset_data_2 <- subset(processed_ride_data,RIDE_START_HOUR == hour_2 & RIDE_START_DATE %in% date_2)
     
-    mat2 <- create_matrix()(subset_data_2,input$type)
+    mat2 <- create_matrix()(subset_data_2,input$type,date_2)
     myflows2 <- prepflows(mat = mat2, i = "i", j = "j", fij = "fij")
     
     output$ride_table_2 <- renderDataTable(subset_data_2@data)
@@ -437,17 +445,19 @@ shinyServer(function(input, output, session){
     processed_ride_data <- get_data()(input$file1,input$type)
     date_2 <- input$date_2
     hour_2 <- input$hour_2
-    subset_data_2 <- subset(processed_ride_data,RIDE_START_HOUR == hour_2 & RIDE_START_DATE == date_2)
+    subset_data_2 <- subset(processed_ride_data,RIDE_START_HOUR == hour_2 & RIDE_START_DATE %in% date_2)
     
+    length<-length(date_2)
     count_table <- table(subset_data_2$BOARDING_STOP_STN)
-    count_table <- sort(count_table, decreasing = TRUE)
-    count_table <- count_table[1 : 5]
-    count_table <- as.data.frame(count_table)
-    #count_table <- inner_join(count_table,busstop_data,by=c("Var1"="BUS_STOP_N"))
+    count_table <- as.data.frame(count_table,stringsAsFactors = FALSE)
     
+    count_table$Freq <- count_table$Freq/length
+    count_table <- head(count_table[order(-count_table$Freq),],5)
+    count_table <- left_join(count_table,busstop_data,by=c("Var1"="BUS_STOP_N"),copy=TRUE,stringsAsFactors = FALSE)
+    count_table$LOC_DESC <- factor(count_table$LOC_DESC, levels = unique(count_table$LOC_DESC)[order(count_table$Freq, decreasing = TRUE)])
     
-    plot_ly(data= count_table,x = count_table$Var1,y=count_table$Freq, type = 'bar') %>%
-      layout(title = "Top 5 Bus stop", yaxis = list(title = 'Number Of Rides'), xaxis = list(title = "Bus Stop Number"))
+    plot_ly(data= count_table,x =~LOC_DESC,y=~Freq, type = 'bar') %>%
+      layout(title = "Top 5 Bus stop", yaxis = list(title = 'Number Of Rides'),xaxis = list(title = ''))
   })
   
 })

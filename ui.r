@@ -10,6 +10,7 @@
 library(shiny)
 library(plotly)
 library(DT)
+library(leaflet)
 library(shinydashboard)
 
 dashboardPage(
@@ -24,10 +25,10 @@ dashboardPage(
       radioButtons("type", "Aggregation Type",
                    c("Plan Area" = "P_AREA",
                      "Planing Sub Zone" = "Sub_Zone")),
-      selectInput(inputId = "date_1", label = "Date 1", choices = NULL, multiple = FALSE, selectize = TRUE),
+      selectInput(inputId = "date_1", label = "Date 1", choices = NULL, multiple = TRUE, selectize = TRUE),
       selectInput(inputId = "hour_1", label = "Hour 1", choices = NULL, multiple = FALSE, selectize = TRUE),
       sliderInput(inputId = "K_1", label ="K 1", min = 5, max = 100, value = 20, step = 5),
-      selectInput(inputId = "date_2", label = "Date 2", choices = NULL, multiple = FALSE, selectize = TRUE),
+      selectInput(inputId = "date_2", label = "Date 2", choices = NULL, multiple = TRUE, selectize = TRUE),
       selectInput(inputId = "hour_2", label = "Hour 2", choices = NULL, multiple = FALSE, selectize = TRUE),
       sliderInput(inputId = "K_2", label ="K 2", min = 5, max = 100, value = 20, step = 5),
       menuItem("Interactive Analysis - Flows", tabName = "interactive1", 
