@@ -131,8 +131,7 @@ plotMapDomFlows2 <- function(mat, spdf, spdfid, w, wid, wvar, wcex = 0.05, legen
                     colors = c("red","orange", "yellow"), opacity = 1,
                     labels = c("Dominant", "Intermediary", 
                                "Dominated"))
-  map <<- addLayersControl(map, baseGroups = c("OSM (default)"),
-                           overlayGroups = c("Points", "Segments", "Basemap"),
+  map <<- addLayersControl(map, overlayGroups = c("Points", "Segments", "Basemap"),
                            options = layersControlOptions(collapsed = FALSE))
   
 }
@@ -266,7 +265,8 @@ shinyServer(function(input, output, session){
     inflows <<- data.frame(id = colnames(myflows), w = colSums(myflows))
     
     # Plot dominant flows map
-    map <<- leaflet() %>% setView(lng = 103.8517, lat = 1.2908, zoom = 11) %>% addTiles(group = "OSM (default)")
+    map <<- leaflet() %>% setView(lng = 103.8517, lat = 1.2908, zoom = 11) %>% addProviderTiles(providers$OpenStreetMap)
+
     if (type == "P_AREA"){
       #proj4string(plan_area_sdf2) <- CRS("+proj=utm +ellps=WGS84 +datum=WGS84")
       plan_area_sdf2 <- spTransform(plan_area_sdf2, CRS("+proj=longlat"))
