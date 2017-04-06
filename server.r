@@ -2,6 +2,7 @@ library(maptools)
 library(plyr)
 library(dplyr)
 library(rgdal)
+library(sp)
 library(flows)
 library(data.table)
 library(stats)
@@ -20,8 +21,9 @@ attribute_path <- "attributeTables"
 
 
 #----------------------------------------------------- Perform Once ----------------------------------------------------
-
+plan_area_sdf2 <- readOGR(paste(project_path,sep = "/",paste(shp_path,sep = "/")),"MP14_PLNG_AREA_WEB_PL")
 plan_area_sdf <- readShapePoly(paste(project_path,sep = "/",paste(shp_path,sep = "/","MP14_PLNG_AREA_WEB_PL.shp")))
+sub_zone_sdf2 <- readOGR(paste(project_path,sep = "/",paste(shp_path,sep = "/")),"MP14_SUBZONE_NO_SEA_PL")
 sub_zone_sdf <- readShapePoly(paste(project_path,sep = "/",paste(shp_path,sep = "/","MP14_SUBZONE_NO_SEA_PL.shp")))
 busstop_data <- read.csv(paste(project_path,sep = "/",paste(attribute_path,sep = "/","busstop.csv")))
 busstop_data$BUS_STOP_N <- c(as.character(busstop_data$BUS_STOP_N))
@@ -52,6 +54,90 @@ processed_data$ALIGHTING_AREA <- over(processed_data,plan_area_sdf)$PLN_AREA_N
 #original_data <<- processed_data
 selected_type <<- "P_AREA"
 first_load <<- TRUE
+
+#replace the plotMapDomFlows function
+plotMapDomFlows2 <- function(mat, spdf, spdfid, w, wid, wvar, wcex = 0.05, legend.flows.pos = "topright",
+                             legend.flows.title = "flow intensity", legend.nodes.pos = "topleft",
+                             legend.node.txt = c("Dominant", "Intermediary", "Dominated",
+                                                 "Size proportional\nto sum of inflows"), add = FALSE){
+  # points management
+  pts <- data.frame(sp::coordinates(spdf), id  = spdf@data[,spdfid])
+  names(pts)[1:2] <- c("long", "lat")
+  w <- w[,c(wid, wvar)]
+  names(w) <- c("id", "var")
+  pts <- merge(pts, w, by.x = "id", by.y = "id", all.x = T)
+  
+  # points size
+  bbbox <- sp::bbox(spdf)
+  x1 <- bbbox[1]
+  y1 <- bbbox[2]
+  x2 <- bbbox[3]
+  y2 <- bbbox[4]
+  sfdc <- (x2-x1)*(y2-y1)
+  sc <- sum(pts$var, na.rm=TRUE)
+  pts$cex <- sqrt((pts$var * wcex * sfdc / sc) / pi)
+  pts <- pts[order(pts$cex,decreasing=TRUE),]
+  pts <- pts[pts$cex > 0, ]
+  
+  # Segment management
+  colnames(mat) <- paste("X", colnames(mat), sep="")
+  row.names(mat) <- paste("X", row.names(mat), sep="")
+  fdom <- reshape2::melt(mat)
+  names(fdom) <- c("i", "j", "fij")
+  fdom <- fdom[fdom$fij > 0,]
+  fdom$i <- substr(x = fdom$i, 2 , nchar(as.character(fdom$i)))
+  fdom$j <- substr(x = fdom$j, 2 , nchar(as.character(fdom$j)))
+  fdom <- merge(fdom, pts, by.x = "i", by.y = "id", all.x = T,
+                suffixes = c("i","j"))
+  fdom <- merge(fdom, pts, by.x = "j", by.y = "id", all.x = T,
+                suffixes = c("i","j"))
+  fdom$width <- (fdom$fij * 8 / (max(fdom$fij) - min(fdom$fij))) + 2
+  
+  # points color
+  pts$col <- "green"
+  pts[pts$id %in% fdom$j & !pts$id %in% fdom$i, "col"] <- "red"
+  pts[pts$id %in% fdom$j & pts$id %in% fdom$i, "col"] <- "orange"
+  pts[!pts$id %in% fdom$j & pts$id %in% fdom$i, "col"] <- "yellow"
+  pts <- pts[pts$col != "green",]
+  
+  # Affichage points and segments
+  if(add == FALSE){
+    spdf <- spTransform(spdf, CRS("+proj=longlat"))
+    map <<- addPolygons(map,data=spdf,weight=1,col = 'blue',opacity = 1, group = "Basemap",
+                        fill = TRUE, fillColor = 'blue', fillOpacity = 0.5)
+  }
+  map <<- addCircles(map, lng = pts$long, lat = pts$lat,radius = pts$cex*80000,
+                     fill = TRUE, fillColor = pts$col, color = "grey50", weight = 0.5,
+                     fillOpacity = 0.8, opacity = 1, group = "Points",
+                     label = paste("cex: ",pts$cex, "var: ",pts$var),
+                     highlightOptions = highlightOptions(color = "white", weight = 1.5,
+                                                         bringToFront = FALSE))
+  
+  begin.coord <- data.frame(lon=fdom$longi, lat=fdom$lati)
+  end.coord <- data.frame(lon=fdom$longj, lat=fdom$latj)
+  width <<- data.frame(x=fdom$width)
+  l <- vector("list", nrow(begin.coord))
+  
+  for (i in seq_along(l)) {
+    sl <<-Line(rbind(begin.coord[i, ], end.coord[i,]))
+    map <<- addPolylines(map, data=sl, weight=width[i,],col='black', opacity = 1, group = "Segments",
+                         label = paste("Flow Intensity:", as.character(width[i,])),
+                         highlightOptions = highlightOptions(color = "white", weight = width[i,],
+                                                             bringToFront = FALSE))
+  }
+  
+  map <<- addLegend(map, position = "bottomleft", 
+                    title = "Size proportional\nto sum of inflows",
+                    colors = c("red","orange", "yellow"), opacity = 1,
+                    labels = c("Dominant", "Intermediary", 
+                               "Dominated"))
+  map <<- addLayersControl(map, baseGroups = c("OSM (default)"),
+                           overlayGroups = c("Points", "Segments", "Basemap"),
+                           options = layersControlOptions(collapsed = FALSE))
+  
+}
+
+
 #----------------------------------------------------- Perform Once End ----------------------------------------------------
 
 options(shiny.maxRequestSize=600*1024^2)
@@ -164,10 +250,8 @@ shinyServer(function(input, output, session){
     mat
   })
   
-  create_plot <- reactive(function(myflows, date, hour, k,type){
-    
+  create_leaflet <- reactive(function(myflows, date, hour, k, type){
     diag(myflows) <- 0
-    
     # Select flows that represent at least 20% of the sum of outgoing flows for 
     # each urban area.
     flowSel1 <- firstflows(mat = myflows/rowSums(myflows)*100, method = "xfirst", k = k)
@@ -176,39 +260,46 @@ shinyServer(function(input, output, session){
     flowSel2 <- domflows(mat = myflows, w = colSums(myflows), k = 1)
     
     # Combine selections
-    flowSel <- myflows * flowSel1 * flowSel2
+    flowSel <<- myflows * flowSel1 * flowSel2
     
     # Node weights
-    inflows <- data.frame(id = colnames(myflows), w = colSums(myflows))
+    inflows <<- data.frame(id = colnames(myflows), w = colSums(myflows))
     
     # Plot dominant flows map
-    opar <- par(mar = c(0,0,2,0), cex=2)
+    map <<- leaflet() %>% setView(lng = 103.8517, lat = 1.2908, zoom = 11) %>% addTiles(group = "OSM (default)")
     if (type == "P_AREA"){
+      #proj4string(plan_area_sdf2) <- CRS("+proj=utm +ellps=WGS84 +datum=WGS84")
+      plan_area_sdf2 <- spTransform(plan_area_sdf2, CRS("+proj=longlat"))
+      map <<- addPolygons(map,data=plan_area_sdf2,weight=1,col = 'blue',opacity = 1, 
+                          fill = TRUE, fillColor = 'blue', fillOpacity = 0.5,
+                          label = plan_area_sdf2$PLN_AREA_N,
+                          group = "Basemap",
+                          highlightOptions = highlightOptions(color = "white", weight = 1.5,
+                                                              bringToFront = FALSE))
       
-      sp::plot(plan_area_sdf, col = "#cceae7")
-      plotMapDomFlows(mat = flowSel, spdf = plan_area_sdf, spdfid = "OBJECTID", w = inflows, wid = "id",
-                      wvar = "w", wcex = 0.05, add = TRUE,
-                      legend.flows.pos = "topright",
-                      legend.flows.title = "Nb. of commuters")
-      title(paste("Dominant Flows of Commuters",date,hour, sep = " - "))
-      mtext(text = "TEAM JSR, 2017", side = 4, line = -1, adj = 0.01, cex = 0.8)
-      par(opar)
+      plotMapDomFlows2(mat = flowSel, spdf = plan_area_sdf2, spdfid = "OBJECTID", w = inflows, wid = "id",
+                       wvar = "w", wcex = 0.05, add = TRUE,
+                       legend.flows.pos = "topright",
+                       legend.flows.title = "Nb. of commuters")
+      
     }else{
+      #proj4string(sub_zone_sdf2) <- CRS("+proj=utm +ellps=WGS84 +datum=WGS84")
+      sub_zone_sdf2 <- spTransform(sub_zone_sdf2, CRS("+proj=longlat"))
+
+      map <<- addPolygons(map,data=sub_zone_sdf2,weight=1,col = 'blue',opacity = 1, 
+                          fill = TRUE, fillColor = 'blue', fillOpacity = 0.5,
+                          label = sub_zone_sdf2$SUBZONE_N,
+                          group = "Basemap",
+                          highlightOptions = highlightOptions(color = "white", weight = 1.5,
+                                                              bringToFront = FALSE))
       
-      sp::plot(sub_zone_sdf, col = "#cceae7")
-      plotMapDomFlows(mat = flowSel, spdf = sub_zone_sdf, spdfid = "OBJECTID", w = inflows, wid = "id",
-                      wvar = "w", wcex = 0.05, add = TRUE,
-                      legend.flows.pos = "topright",
-                      legend.flows.title = "Nb. of commuters")
-      title(paste("Dominant Flows of Commuters",date,hour, sep = " - "))
-      mtext(text = "TEAM JSR, 2017", side = 4, line = -1, adj = 0.01, cex = 0.8)
-      par(opar)
+      plotMapDomFlows2(mat = flowSel, spdf = sub_zone_sdf2, spdfid = "OBJECTID", w = inflows, wid = "id",
+                       wvar = "w", wcex = 0.05, add = TRUE,
+                       legend.flows.pos = "topright",
+                       legend.flows.title = "Nb. of commuters")
       
     }
-    
   })
-  
-  
   
   #Do once
   
@@ -272,7 +363,7 @@ shinyServer(function(input, output, session){
     
   })
   
-  output$dominance_plot1 <- renderPlot({
+  output$dominance_leaflet1 <- renderLeaflet({
     req(input$date_1,input$hour_1, cancelOutput = TRUE)
     date_1 <- input$date_1
     hour_1 <- input$hour_1
@@ -287,7 +378,7 @@ shinyServer(function(input, output, session){
     
     output$ride_table_1 <- renderDataTable(subset_data_1@data)
     output$flow_matrix_table_1 <- renderDataTable(mat1)
-    create_plot()(myflows1,date_1, hour_1,K_1,input$type)
+    create_leaflet()(myflows1,date_1, hour_1,K_1,input$type)
   })
   
   output$plotCount1 <- renderPlotly({
@@ -324,7 +415,7 @@ shinyServer(function(input, output, session){
     
   })
   
-  output$dominance_plot2 <- renderPlot({
+  output$dominance_leaflet2 <- renderLeaflet({
     req(input$date_2,input$hour_2, cancelOutput = TRUE)
     date_2 <- input$date_2
     hour_2 <- input$hour_2
@@ -338,7 +429,7 @@ shinyServer(function(input, output, session){
     output$ride_table_2 <- renderDataTable(subset_data_2@data)
     output$flow_matrix_table_2 <- renderDataTable(mat2)
     
-    create_plot()(myflows2,date_2,hour_2,K_2,input$type)
+    create_leaflet()(myflows2,date_2,hour_2,K_2,input$type)
   })
   
   output$plotCount2 <- renderPlotly({

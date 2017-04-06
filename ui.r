@@ -49,14 +49,16 @@ dashboardPage(
                   title = "Dominance plot - 1", solidHeader = TRUE,
                   collapsible = TRUE,
                   width = 12,
-                  plotOutput("dominance_plot1",height= 600)
+                  #plotOutput("dominance_plot1",height= 600)
+                  leafletOutput("dominance_leaflet1",height= 600)
                 ),
                 
                 box(
                   title = "Dominance plot - 2", solidHeader = TRUE,
                   collapsible = TRUE,
                   width = 12,
-                  plotOutput("dominance_plot2",height= 600)
+                  #plotOutput("dominance_plot2",height= 600)
+                  leafletOutput("dominance_leaflet2",height= 600)
                 )
               )              
       ),
