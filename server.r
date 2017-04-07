@@ -58,7 +58,7 @@ selected_type <<- "P_AREA"
 first_load <<- TRUE
 
 #replace the plotMapDomFlows function
-plotMapDomFlows2 <- function(mat, spdf, spdfid, w, wid, wvar, wcex = 0.05, legend.flows.pos = "topright",
+plotMapDomFlows2 <- function(mat,original, spdf, spdfid, w, wid, wvar, wcex = 0.05, legend.flows.pos = "topright",
                              legend.flows.title = "flow intensity", legend.nodes.pos = "topleft",
                              legend.node.txt = c("Dominant", "Intermediary", "Dominated",
                                                  "Size proportional\nto sum of inflows"), add = FALSE){
@@ -101,17 +101,23 @@ plotMapDomFlows2 <- function(mat, spdf, spdfid, w, wid, wvar, wcex = 0.05, legen
   pts[pts$id %in% fdom$j & pts$id %in% fdom$i, "col"] <- "orange"
   pts[!pts$id %in% fdom$j & pts$id %in% fdom$i, "col"] <- "yellow"
   pts <- pts[pts$col != "green",]
-  
   # Affichage points and segments
   if(add == FALSE){
     spdf <- spTransform(spdf, CRS("+proj=longlat"))
     map <<- addPolygons(map,data=spdf,weight=1,col = 'blue',opacity = 1, group = "Basemap",
                         fill = TRUE, fillColor = 'blue', fillOpacity = 0.5)
   }
+  
+  internal <- diag(original)
+  internal_flow <- data.frame(internal)
+  name <- row.names(internal_flow)
+  internal_flow <- data.frame(name, internal)
+  
+  pts <- merge(pts, internal_flow, by.x = "id", by.y = "name", all.x = T)
   map <<- addCircles(map, lng = pts$long, lat = pts$lat,radius = pts$cex*80000,
                      fill = TRUE, fillColor = pts$col, color = "grey50", weight = 0.5,
                      fillOpacity = 0.8, opacity = 1, group = "Points",
-                     label = paste("Total in-flow:",pts$var),
+                     label = paste("Total in-flow: ",pts$var,"| Internal Flow: ",pts$internal, "| Total: ",as.numeric(pts$var)+as.numeric(pts$internal)),
                      highlightOptions = highlightOptions(color = "white", weight = 1.5,
                                                          bringToFront = FALSE))
   
@@ -125,15 +131,7 @@ plotMapDomFlows2 <- function(mat, spdf, spdfid, w, wid, wvar, wcex = 0.05, legen
   map <<- addPolylines(map, data=p,weight = fdom$width,col='black', opacity = 1, group = "Segments",
                        label = paste("Flow to Dominant:", fdom$fij),
                        highlightOptions = highlightOptions(color = "white",bringToFront = FALSE))
-  #l <- vector("list", nrow(begin.coord))
   
-  #for (i in seq_along(l)) {
-  #  sl <<-Line(rbind(begin.coord[i, ], end.coord[i,]))
-  #  map <<- addPolylines(map, data=sl, weight=width[i,],col='black', opacity = 1, group = "Segments",
-  #                       label = paste("Flow Intensity:", as.character(width[i,])),
-  #                       highlightOptions = highlightOptions(color = "white", weight = width[i,],
-  #                                                           bringToFront = FALSE))
-  #}
   
   map <<- addLegend(map, position = "bottomleft", 
                     title = "Size proportional\nto sum of inflows",
@@ -260,6 +258,7 @@ shinyServer(function(input, output, session){
   })
   
   create_leaflet <- reactive(function(myflows, date, hour, k, type){
+    original <- myflows
     diag(myflows) <- 0
     # Select flows that represent at least 20% of the sum of outgoing flows for 
     # each urban area.
@@ -275,8 +274,8 @@ shinyServer(function(input, output, session){
     inflows <<- data.frame(id = colnames(myflows), w = colSums(myflows))
     
     # Plot dominant flows map
-    map <<- leaflet() %>% setView(lng = 103.8517, lat = 1.2908, zoom = 11) %>% addProviderTiles(providers$OpenStreetMap)
-
+    map <<- leaflet() %>% setView(lng = 103.8517, lat = 1.2908, zoom = 11) %>% addProviderTiles(providers$OpenStreetMap, options = providerTileOptions(minZoom=11, maxZoom=15))
+    
     if (type == "P_AREA"){
       #proj4string(plan_area_sdf2) <- CRS("+proj=utm +ellps=WGS84 +datum=WGS84")
       plan_area_sdf2 <- spTransform(plan_area_sdf2, CRS("+proj=longlat"))
@@ -287,7 +286,7 @@ shinyServer(function(input, output, session){
                           highlightOptions = highlightOptions(color = "white", weight = 1.5,
                                                               bringToFront = FALSE))
       
-      plotMapDomFlows2(mat = flowSel, spdf = plan_area_sdf2, spdfid = "OBJECTID", w = inflows, wid = "id",
+      plotMapDomFlows2(mat = flowSel,original, spdf = plan_area_sdf2, spdfid = "OBJECTID", w = inflows, wid = "id",
                        wvar = "w", wcex = 0.05, add = TRUE,
                        legend.flows.pos = "topright",
                        legend.flows.title = "Nb. of commuters")
@@ -295,7 +294,7 @@ shinyServer(function(input, output, session){
     }else{
       #proj4string(sub_zone_sdf2) <- CRS("+proj=utm +ellps=WGS84 +datum=WGS84")
       sub_zone_sdf2 <- spTransform(sub_zone_sdf2, CRS("+proj=longlat"))
-
+      
       map <<- addPolygons(map,data=sub_zone_sdf2,weight=1,col = 'blue',opacity = 1, 
                           fill = TRUE, fillColor = 'blue', fillOpacity = 0.5,
                           label = sub_zone_sdf2$SUBZONE_N,
@@ -303,7 +302,7 @@ shinyServer(function(input, output, session){
                           highlightOptions = highlightOptions(color = "white", weight = 1.5,
                                                               bringToFront = FALSE))
       
-      plotMapDomFlows2(mat = flowSel, spdf = sub_zone_sdf2, spdfid = "OBJECTID", w = inflows, wid = "id",
+      plotMapDomFlows2(mat = flowSel, original,spdf = sub_zone_sdf2, spdfid = "OBJECTID", w = inflows, wid = "id",
                        wvar = "w", wcex = 0.05, add = TRUE,
                        legend.flows.pos = "topright",
                        legend.flows.title = "Nb. of commuters")
