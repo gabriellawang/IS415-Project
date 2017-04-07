@@ -11,6 +11,8 @@ library(plotly)
 library(leaflet)
 library(shinydashboard)
 library(DT)
+library(spatstat)
+
 
 wd <- setwd(".")
 setwd(wd)
@@ -109,22 +111,29 @@ plotMapDomFlows2 <- function(mat, spdf, spdfid, w, wid, wvar, wcex = 0.05, legen
   map <<- addCircles(map, lng = pts$long, lat = pts$lat,radius = pts$cex*80000,
                      fill = TRUE, fillColor = pts$col, color = "grey50", weight = 0.5,
                      fillOpacity = 0.8, opacity = 1, group = "Points",
-                     label = paste("cex: ",pts$cex, "var: ",pts$var),
+                     label = paste("Total in-flow:",pts$var),
                      highlightOptions = highlightOptions(color = "white", weight = 1.5,
                                                          bringToFront = FALSE))
   
   begin.coord <- data.frame(lon=fdom$longi, lat=fdom$lati)
   end.coord <- data.frame(lon=fdom$longj, lat=fdom$latj)
   width <<- data.frame(x=fdom$width)
-  l <- vector("list", nrow(begin.coord))
   
-  for (i in seq_along(l)) {
-    sl <<-Line(rbind(begin.coord[i, ], end.coord[i,]))
-    map <<- addPolylines(map, data=sl, weight=width[i,],col='black', opacity = 1, group = "Segments",
-                         label = paste("Flow Intensity:", as.character(width[i,])),
-                         highlightOptions = highlightOptions(color = "white", weight = width[i,],
-                                                             bringToFront = FALSE))
-  }
+  p <- psp(begin.coord[,1], begin.coord[,2], end.coord[,1], end.coord[,2],     owin(range(c(begin.coord[,1], end.coord[,1])), range(c(begin.coord[,2], end.coord[,2]))))
+  
+  p<-as(p, "SpatialLines") 
+  map <<- addPolylines(map, data=p,weight = fdom$width,col='black', opacity = 1, group = "Segments",
+                       label = paste("Flow to Dominant:", fdom$fij),
+                       highlightOptions = highlightOptions(color = "white",bringToFront = FALSE))
+  #l <- vector("list", nrow(begin.coord))
+  
+  #for (i in seq_along(l)) {
+  #  sl <<-Line(rbind(begin.coord[i, ], end.coord[i,]))
+  #  map <<- addPolylines(map, data=sl, weight=width[i,],col='black', opacity = 1, group = "Segments",
+  #                       label = paste("Flow Intensity:", as.character(width[i,])),
+  #                       highlightOptions = highlightOptions(color = "white", weight = width[i,],
+  #                                                           bringToFront = FALSE))
+  #}
   
   map <<- addLegend(map, position = "bottomleft", 
                     title = "Size proportional\nto sum of inflows",
