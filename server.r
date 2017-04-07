@@ -12,7 +12,7 @@ library(leaflet)
 library(shinydashboard)
 library(DT)
 library(spatstat)
-
+library(classInt)
 
 wd <- setwd(".")
 setwd(wd)
@@ -57,6 +57,15 @@ processed_data$ALIGHTING_AREA <- over(processed_data,plan_area_sdf)$PLN_AREA_N
 selected_type <<- "P_AREA"
 first_load <<- TRUE
 
+
+addLegendCustom <- function(map, colors, labels, sizes, opacity = 0.5,title){
+  colorAdditions <- paste0(colors, "; width:", 30, "px; height:", sizes, "px")
+  labelAdditions <- paste0("<div style='display: inline-block;height: ", sizes, "px;margin-top: 4px;line-height: ", sizes, "px;'>", labels, "</div>")
+  
+  return(addLegend(map, title=title,colors = colorAdditions, labels = labelAdditions, opacity = opacity,position="bottomleft"))
+}
+
+
 #replace the plotMapDomFlows function
 plotMapDomFlows2 <- function(mat,original, spdf, spdfid, w, wid, wvar, wcex = 0.05, legend.flows.pos = "topright",
                              legend.flows.title = "flow intensity", legend.nodes.pos = "topleft",
@@ -94,7 +103,7 @@ plotMapDomFlows2 <- function(mat,original, spdf, spdfid, w, wid, wvar, wcex = 0.
   fdom <- merge(fdom, pts, by.x = "j", by.y = "id", all.x = T,
                 suffixes = c("i","j"))
   fdom$width <- (fdom$fij * 8 / (max(fdom$fij) - min(fdom$fij))) + 2
-  
+  apple<<-fdom 
   # points color
   pts$col <- "green"
   pts[pts$id %in% fdom$j & !pts$id %in% fdom$i, "col"] <- "red"
@@ -127,10 +136,13 @@ plotMapDomFlows2 <- function(mat,original, spdf, spdfid, w, wid, wvar, wcex = 0.
   
   p <- psp(begin.coord[,1], begin.coord[,2], end.coord[,1], end.coord[,2],     owin(range(c(begin.coord[,1], end.coord[,1])), range(c(begin.coord[,2], end.coord[,2]))))
   
-  p<-as(p, "SpatialLines") 
+  p<-as(p, "SpatialLines")   
+  inv <- classIntervals(apple$fij,n=3,style="jenks")
+  
   map <<- addPolylines(map, data=p,weight = fdom$width,col='black', opacity = 1, group = "Segments",
                        label = paste("Flow to Dominant:", fdom$fij),
-                       highlightOptions = highlightOptions(color = "white",bringToFront = FALSE))
+                       highlightOptions = highlightOptions(color = "white",bringToFront = FALSE))%>%
+    addLegendCustom(colors = c("black", "black", "black","black"), labels = inv$brks, sizes = c(4,6,8,10),title="Size proportional to flows", opacity = 1)
   
   
   map <<- addLegend(map, position = "bottomleft", 
