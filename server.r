@@ -175,7 +175,7 @@ plotMapDomFlows2 <- function(mat,original, spdf, spdfid, w, wid, wvar, wcex = 0.
 
 #----------------------------------------------------- Perform Once End ----------------------------------------------------
 
-options(shiny.maxRequestSize=600*1024^2)
+options(shiny.maxRequestSize=5*1024*1024^2)
 shinyServer(function(input, output, session){
   
   get_data <- reactive(function(inFile,type){
