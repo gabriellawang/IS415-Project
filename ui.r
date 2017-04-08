@@ -18,6 +18,7 @@ dashboardPage(
   ## Sidebar content
   dashboardSidebar(
     width = 300,
+    div(style="overflow-y: scroll"),
     sidebarMenu(
       #style = "position: fixed;",
       width = 300,
@@ -47,18 +48,16 @@ dashboardPage(
                 h2("Interactive Analysis"),
                 align="center",
                 box(
-                  title = "Dominance plot - 1", solidHeader = TRUE,
+                  title = "Dominant Flow - Map 1", solidHeader = TRUE,
                   collapsible = TRUE,
                   width = 12,
-                  #plotOutput("dominance_plot1",height= 600)
                   leafletOutput("dominance_leaflet1",height= 600)
                 ),
                 
                 box(
-                  title = "Dominance plot - 2", solidHeader = TRUE,
+                  title = "Dominant Flow - Map 2", solidHeader = TRUE,
                   collapsible = TRUE,
                   width = 12,
-                  #plotOutput("dominance_plot2",height= 600)
                   leafletOutput("dominance_leaflet2",height= 600)
                 )
               )              
@@ -73,13 +72,13 @@ dashboardPage(
                   title = h3("Statistic - 1"), solidHeader = TRUE,
                   collapsible = TRUE,
                   plotOutput("stat1"),
-                  plotlyOutput("plotCount1")
+                  plotlyOutput("plotCount1", height = 600)
                 ),
                 box(
                   title = h3("Statistic - 2"), solidHeader = TRUE,
                   collapsible = TRUE,
                   plotOutput("stat2"),
-                  plotlyOutput("plotCount2")
+                  plotlyOutput("plotCount2", height = 600)
                 )
               )
               

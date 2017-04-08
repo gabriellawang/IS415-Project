@@ -31,8 +31,8 @@ busstop_data <- read.csv(paste(project_path,sep = "/",paste(attribute_path,sep =
 busstop_data$BUS_STOP_N <- c(as.character(busstop_data$BUS_STOP_N))
 
 #data_file_name <<- "2016-02-16.csv"
-#data_file_name <<- "two_days_data.csv"
-data_file_name <<- "CITY_NATION_RIDE_DATA_FULL.csv"
+data_file_name <<- "two_days_data.csv"
+#data_file_name <<- "CITY_NATION_RIDE_DATA_FULL.csv"
 global_date_1 <<- NULL
 global_date_2 <<- NULL
 
@@ -122,7 +122,7 @@ plotMapDomFlows2 <- function(mat,original, spdf, spdfid, w, wid, wvar, wcex = 0.
   map <<- addCircles(map, lng = pts$long, lat = pts$lat,radius = pts$cex*80000,
                      fill = TRUE, fillColor = pts$col, color = "grey50", weight = 0.5,
                      fillOpacity = 0.8, opacity = 1, group = "Points",
-                     label = paste("Total in-flow: ",pts$var,"| Internal Flow: ",pts$internal, "| Total: ",as.numeric(pts$var)+as.numeric(pts$internal)),
+                     label = paste("In-flow: ",pts$var,"| Internal Flow(within area): ",pts$internal, "| Total: ",as.numeric(pts$var)+as.numeric(pts$internal)),
                      highlightOptions = highlightOptions(color = "white", weight = 1.5,
                                                          bringToFront = FALSE))
   
@@ -138,7 +138,7 @@ plotMapDomFlows2 <- function(mat,original, spdf, spdfid, w, wid, wvar, wcex = 0.
   map <<- addPolylines(map, data=p,weight = fdom$width,col='black', opacity = 1, group = "Segments",
                        label = paste("Flow to Dominant:", fdom$fij),
                        highlightOptions = highlightOptions(color = "white",bringToFront = FALSE))%>%
-    addLegendCustom(colors = c("black", "black", "black","black"), labels = inv$brks, sizes = c(4,6,8,10),title="Size proportional to flows", opacity = 1)
+  addLegendCustom(colors = c("black", "black", "black","black"), labels = inv$brks, sizes = c(4,6,8,10),title="Size proportional to flows", opacity = 1)
   
   
   map <<- addLegend(map, position = "bottomleft", 
@@ -420,9 +420,11 @@ shinyServer(function(input, output, session){
     count_table <- head(count_table[order(-count_table$Freq),],5)
     count_table <- left_join(count_table,busstop_data,by=c("Var1"="BUS_STOP_N"),copy=TRUE,stringsAsFactors = FALSE)
     count_table$LOC_DESC <- factor(count_table$LOC_DESC, levels = unique(count_table$LOC_DESC)[order(count_table$Freq, decreasing = TRUE)])
-    
+    m <- list(
+      l=50, r=50, t=100,b=100, pad=4
+    )
     plot_ly(data= count_table,x =~LOC_DESC,y=~Freq, type = 'bar') %>%
-      layout(title = "Top 5 Bus stop", yaxis = list(title = 'Number Of Rides'),xaxis = list(title = ''))
+      layout(title = "Top 5 Bus stop",margin = m,yaxis = list(title = 'Number Of Rides'),xaxis = list(title = ''))
   })  
   
   output$stat2 <- renderPlot({
@@ -474,9 +476,11 @@ shinyServer(function(input, output, session){
     count_table <- head(count_table[order(-count_table$Freq),],5)
     count_table <- left_join(count_table,busstop_data,by=c("Var1"="BUS_STOP_N"),copy=TRUE,stringsAsFactors = FALSE)
     count_table$LOC_DESC <- factor(count_table$LOC_DESC, levels = unique(count_table$LOC_DESC)[order(count_table$Freq, decreasing = TRUE)])
-    
+    m <- list(
+      l=50, r=50, t=100,b=100, pad=4
+    )
     plot_ly(data= count_table,x =~LOC_DESC,y=~Freq, type = 'bar') %>%
-      layout(title = "Top 5 Bus stop", yaxis = list(title = 'Number Of Rides'),xaxis = list(title = ''))
+      layout(title = "Top 5 Bus stop",margin = m, yaxis = list(title = 'Number Of Rides'),xaxis = list(title = ''))
   })
   
 })
