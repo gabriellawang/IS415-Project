@@ -30,8 +30,12 @@ sub_zone_sdf <- readShapePoly(paste(project_path,sep = "/",paste(shp_path,sep = 
 busstop_data <- read.csv(paste(project_path,sep = "/",paste(attribute_path,sep = "/","busstop.csv")),stringsAsFactors = FALSE)
 busstop_data$BUS_STOP_N <- c(as.character(busstop_data$BUS_STOP_N))
 
-data_file_name <<- "2016-02-16.csv"
+#data_file_name <<- "2016-02-16.csv"
 #data_file_name <<- "two_days_data.csv"
+data_file_name <<- "CITY_NATION_RIDE_DATA_FULL.csv"
+global_date_1 <<- NULL
+global_date_2 <<- NULL
+
 
 ride_data <-  fread(paste(project_path,sep = "/",paste(attribute_path,sep = "/",data_file_name)))
 ride_data$RIDE_START_HOUR <- as.POSIXlt(ride_data$RIDE_START_TIME, format = "%H:%M:%S")$hour
@@ -62,15 +66,12 @@ addLegendCustom <- function(map, colors, labels, sizes, opacity = 0.5,title){
   colorAdditions <- paste0(colors, "; width:", 30, "px; height:", sizes, "px")
   labelAdditions <- paste0("<div style='display: inline-block;height: ", sizes, "px;margin-top: 4px;line-height: ", sizes, "px;'>", labels, "</div>")
   
-  return(addLegend(map, title=title,colors = colorAdditions, labels = labelAdditions, opacity = opacity,position="bottomleft"))
+  return(addLegend(map, title=title,colors = colorAdditions, labels = labelAdditions, opacity = opacity,position="bottomright"))
 }
 
 
 #replace the plotMapDomFlows function
-plotMapDomFlows2 <- function(mat,original, spdf, spdfid, w, wid, wvar, wcex = 0.05, legend.flows.pos = "topright",
-                             legend.flows.title = "flow intensity", legend.nodes.pos = "topleft",
-                             legend.node.txt = c("Dominant", "Intermediary", "Dominated",
-                                                 "Size proportional\nto sum of inflows"), add = FALSE){
+plotMapDomFlows2 <- function(mat,original, spdf, spdfid, w, wid, wvar, wcex = 0.05){
   # points management
   pts <- data.frame(sp::coordinates(spdf), id  = spdf@data[,spdfid])
   names(pts)[1:2] <- c("long", "lat")
@@ -103,7 +104,7 @@ plotMapDomFlows2 <- function(mat,original, spdf, spdfid, w, wid, wvar, wcex = 0.
   fdom <- merge(fdom, pts, by.x = "j", by.y = "id", all.x = T,
                 suffixes = c("i","j"))
   fdom$width <- (fdom$fij * 8 / (max(fdom$fij) - min(fdom$fij))) + 2
-  apple<<-fdom 
+
   # points color
   pts$col <- "green"
   pts[pts$id %in% fdom$j & !pts$id %in% fdom$i, "col"] <- "red"
@@ -111,11 +112,6 @@ plotMapDomFlows2 <- function(mat,original, spdf, spdfid, w, wid, wvar, wcex = 0.
   pts[!pts$id %in% fdom$j & pts$id %in% fdom$i, "col"] <- "yellow"
   pts <- pts[pts$col != "green",]
   # Affichage points and segments
-  if(add == FALSE){
-    spdf <- spTransform(spdf, CRS("+proj=longlat"))
-    map <<- addPolygons(map,data=spdf,weight=1,col = 'blue',opacity = 1, group = "Basemap",
-                        fill = TRUE, fillColor = 'blue', fillOpacity = 0.5)
-  }
   
   internal <- diag(original)
   internal_flow <- data.frame(internal)
@@ -137,7 +133,7 @@ plotMapDomFlows2 <- function(mat,original, spdf, spdfid, w, wid, wvar, wcex = 0.
   p <- psp(begin.coord[,1], begin.coord[,2], end.coord[,1], end.coord[,2],     owin(range(c(begin.coord[,1], end.coord[,1])), range(c(begin.coord[,2], end.coord[,2]))))
   
   p<-as(p, "SpatialLines")   
-  inv <- classIntervals(apple$fij,n=3,style="jenks")
+  inv <- classIntervals(fdom$fij,n=3,style="jenks")
   
   map <<- addPolylines(map, data=p,weight = fdom$width,col='black', opacity = 1, group = "Segments",
                        label = paste("Flow to Dominant:", fdom$fij),
@@ -264,7 +260,7 @@ shinyServer(function(input, output, session){
       mat <- merge(x = mat, y = sub_zone_sdf@data[c("SUBZONE_N", "OBJECTID")], by = "SUBZONE_N", all.x=TRUE)
       mat <-  plyr::rename(mat, c("SUBZONE_N"="jname","OBJECTID"= "j" ))
     }
-    mat <- transform(mat, fij =fij/ length(dates))
+    mat <- transform(mat, fij = round(fij/ length(dates), digits=2))
     
     mat
   })
@@ -299,9 +295,7 @@ shinyServer(function(input, output, session){
                                                               bringToFront = FALSE))
       
       plotMapDomFlows2(mat = flowSel,original, spdf = plan_area_sdf2, spdfid = "OBJECTID", w = inflows, wid = "id",
-                       wvar = "w", wcex = 0.05, add = TRUE,
-                       legend.flows.pos = "topright",
-                       legend.flows.title = "Nb. of commuters")
+                       wvar = "w", wcex = 0.05)
       
     }else{
       #proj4string(sub_zone_sdf2) <- CRS("+proj=utm +ellps=WGS84 +datum=WGS84")
@@ -315,9 +309,7 @@ shinyServer(function(input, output, session){
                                                               bringToFront = FALSE))
       
       plotMapDomFlows2(mat = flowSel, original,spdf = sub_zone_sdf2, spdfid = "OBJECTID", w = inflows, wid = "id",
-                       wvar = "w", wcex = 0.05, add = TRUE,
-                       legend.flows.pos = "topright",
-                       legend.flows.title = "Nb. of commuters")
+                       wvar = "w", wcex = 0.05)
       
     }
   })
@@ -346,22 +338,31 @@ shinyServer(function(input, output, session){
     if (!is.null(processed_ride_data)){
       
       date_1 <- input$date_1
+      
       date_2 <- input$date_2
       
       if (!is.null(date_1)){
-        
-        data <- subset(processed_ride_data,RIDE_START_DATE == date_1)
-        hours <-  unique(data$RIDE_START_HOUR)
-        hours <- sort(hours, decreasing = FALSE)
-        
-        updateSelectInput(session,"hour_1",choices = hours,selected = hours[1])
+        if (is.null(global_date_1) | length(setdiff(global_date_1,date_1)) > 0){
+          global_date_1 <<- input$date_1
+          
+          data <- subset(processed_ride_data,RIDE_START_DATE %in% date_1)
+          hours <-  unique(data$RIDE_START_HOUR)
+          hours <- sort(hours, decreasing = FALSE)
+          
+          updateSelectInput(session,"hour_1",choices = hours,selected = hours[1])
+        }
       }
       
       if (!is.null(date_2)){
-        data <- subset(processed_ride_data,RIDE_START_DATE == date_2)
-        hours <-  unique(data$RIDE_START_HOUR)
-        hours <- sort(hours, decreasing = FALSE)
-        updateSelectInput(session,"hour_2",choices = hours,selected = hours[1])
+        if (is.null(global_date_2) | length(setdiff(global_date_2,date_2)) > 0){
+          
+          global_date_2 <<- input$date_2
+          
+          data <- subset(processed_ride_data,RIDE_START_DATE %in% date_2)
+          hours <-  unique(data$RIDE_START_HOUR)
+          hours <- sort(hours, decreasing = FALSE)
+          updateSelectInput(session,"hour_2",choices = hours,selected = hours[1])
+        }
       }
     }
     
@@ -415,7 +416,7 @@ shinyServer(function(input, output, session){
     count_table <- table(subset_data_1$BOARDING_STOP_STN)
     count_table <- as.data.frame(count_table,stringsAsFactors = FALSE)
     
-    count_table$Freq <- count_table$Freq/length
+    count_table$Freq <- round(count_table$Freq/length,2)
     count_table <- head(count_table[order(-count_table$Freq),],5)
     count_table <- left_join(count_table,busstop_data,by=c("Var1"="BUS_STOP_N"),copy=TRUE,stringsAsFactors = FALSE)
     count_table$LOC_DESC <- factor(count_table$LOC_DESC, levels = unique(count_table$LOC_DESC)[order(count_table$Freq, decreasing = TRUE)])
@@ -469,7 +470,7 @@ shinyServer(function(input, output, session){
     count_table <- table(subset_data_2$BOARDING_STOP_STN)
     count_table <- as.data.frame(count_table,stringsAsFactors = FALSE)
     
-    count_table$Freq <- count_table$Freq/length
+    count_table$Freq <- round(count_table$Freq/length, digits=2)
     count_table <- head(count_table[order(-count_table$Freq),],5)
     count_table <- left_join(count_table,busstop_data,by=c("Var1"="BUS_STOP_N"),copy=TRUE,stringsAsFactors = FALSE)
     count_table$LOC_DESC <- factor(count_table$LOC_DESC, levels = unique(count_table$LOC_DESC)[order(count_table$Freq, decreasing = TRUE)])
