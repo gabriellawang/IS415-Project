@@ -167,7 +167,8 @@ plotMapDomFlows2 <- function(mat,original, spdf, spdfid, w, wid, wvar, wcex = 0.
                   title="Size proportional to flows", opacity = 1)
   
   # layer controls
-  map <<- addLayersControl(map, overlayGroups = c("Points", "Segments", "Basemap"))
+  map <<- addLayersControl(map, baseGroups = c("OSM (default)", "WorldImagery"),
+                           overlayGroups = c("Points", "Segments", "Basemap"))
   
 }
 
@@ -310,7 +311,10 @@ shinyServer(function(input, output, session){
     
     # Plot basemap using OSM
     map <<- leaflet() %>% setView(lng = 103.8517, lat = 1.2908, zoom = 11) %>% 
-      addProviderTiles(providers$OpenStreetMap, options = providerTileOptions(minZoom=11, maxZoom=15))
+      addProviderTiles(providers$OpenStreetMap, group = "OpenStreetMap (Default)", 
+                       options = providerTileOptions(minZoom=11, maxZoom=15)) %>%
+      addProviderTiles(providers$Esri.WorldImagery, group = "WorldImagery", 
+                       options = providerTileOptions(minZoom=11, maxZoom=15))
     
     if (type == "P_AREA"){
       plan_area_sdf2 <- spTransform(plan_area_sdf2, CRS("+proj=longlat"))
