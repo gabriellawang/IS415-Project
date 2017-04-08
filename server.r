@@ -1,3 +1,11 @@
+#------------------------------Check Installation------------------------------------------
+packages <- c("maptools", "plyr", "dplyr", "rgdal", "sp", "flows", "data.table", "stats",
+              "shiny", "plotly", "leaflet", "shinydashboard", "DT", "spatstat", "classInt")
+if (length(setdiff(packages, rownames(installed.packages()))) > 0) {
+  install.packages(setdiff(packages, rownames(installed.packages())))  
+}
+
+#------------------------------Import packages---------------------------------------------
 library(maptools)
 library(plyr)
 library(dplyr)
@@ -14,9 +22,9 @@ library(DT)
 library(spatstat)
 library(classInt)
 
+#------------------Set path----------------
 wd <- setwd(".")
 setwd(wd)
-
 project_path <- wd
 shp_path <- "SHPFiles"
 attribute_path <- "attributeTables"
@@ -30,9 +38,12 @@ sub_zone_sdf <- readShapePoly(paste(project_path,sep = "/",paste(shp_path,sep = 
 busstop_data <- read.csv(paste(project_path,sep = "/",paste(attribute_path,sep = "/","busstop.csv")),stringsAsFactors = FALSE)
 busstop_data$BUS_STOP_N <- c(as.character(busstop_data$BUS_STOP_N))
 
+#~~~~~~~~~!!! Define a default data set to read when running the app for the first time !!!~~~~~~~~~~~
 #data_file_name <<- "2016-02-16.csv"
 data_file_name <<- "two_days_data.csv"
 #data_file_name <<- "CITY_NATION_RIDE_DATA_FULL.csv"
+#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
 global_date_1 <<- NULL
 global_date_2 <<- NULL
 
@@ -64,7 +75,8 @@ first_load <<- TRUE
 
 addLegendCustom <- function(map, colors, labels, sizes, opacity = 0.5,title){
   colorAdditions <- paste0(colors, "; width:", 30, "px; height:", sizes, "px")
-  labelAdditions <- paste0("<div style='display: inline-block;height: ", sizes, "px;margin-top: 4px;line-height: ", sizes, "px;'>", labels, "</div>")
+  labelAdditions <- paste0("<div style='display: inline-block;height: ", 
+                           sizes, "px;margin-top: 4px;line-height: ", sizes, "px;'>", labels, "</div>")
   
   return(addLegend(map, title=title,colors = colorAdditions, labels = labelAdditions, opacity = opacity,position="bottomright"))
 }
@@ -118,34 +130,43 @@ plotMapDomFlows2 <- function(mat,original, spdf, spdfid, w, wid, wvar, wcex = 0.
   name <- row.names(internal_flow)
   internal_flow <- data.frame(name, internal)
   
+  # add internal flows data
   pts <- merge(pts, internal_flow, by.x = "id", by.y = "name", all.x = T)
+  
+  # add circles onto leaflet (represent the flow amount) with legend
   map <<- addCircles(map, lng = pts$long, lat = pts$lat,radius = pts$cex*80000,
                      fill = TRUE, fillColor = pts$col, color = "grey50", weight = 0.5,
                      fillOpacity = 0.8, opacity = 1, group = "Points",
-                     label = paste("In-flow: ",pts$var,"| Internal Flow(within area): ",pts$internal, "| Total: ",as.numeric(pts$var)+as.numeric(pts$internal)),
+                     label = paste("In-flow: ",pts$var,"| Internal Flow(within area): ",
+                                   pts$internal, "| Total: ",as.numeric(pts$var)+as.numeric(pts$internal)),
                      highlightOptions = highlightOptions(color = "white", weight = 1.5,
                                                          bringToFront = FALSE))
-  
-  begin.coord <- data.frame(lon=fdom$longi, lat=fdom$lati)
-  end.coord <- data.frame(lon=fdom$longj, lat=fdom$latj)
-  width <<- data.frame(x=fdom$width)
-  
-  p <- psp(begin.coord[,1], begin.coord[,2], end.coord[,1], end.coord[,2],     owin(range(c(begin.coord[,1], end.coord[,1])), range(c(begin.coord[,2], end.coord[,2]))))
-  
-  p<-as(p, "SpatialLines")   
-  inv <- classIntervals(fdom$fij,n=3,style="jenks")
-  
-  map <<- addPolylines(map, data=p,weight = fdom$width,col='black', opacity = 1, group = "Segments",
-                       label = paste("Flow to Dominant:", fdom$fij),
-                       highlightOptions = highlightOptions(color = "white",bringToFront = FALSE))%>%
-  addLegendCustom(colors = c("black", "black", "black","black"), labels = inv$brks, sizes = c(4,6,8,10),title="Size proportional to flows", opacity = 1)
-  
-  
   map <<- addLegend(map, position = "bottomleft", 
                     title = "Size proportional\nto sum of inflows",
                     colors = c("red","orange", "yellow"), opacity = 1,
                     labels = c("Dominant", "Intermediary", 
                                "Dominated"))
+  
+  # generate the lines to represent the flows
+  begin.coord <- data.frame(lon=fdom$longi, lat=fdom$lati)
+  end.coord <- data.frame(lon=fdom$longj, lat=fdom$latj)
+  width <<- data.frame(x=fdom$width)
+  
+  p <- psp(begin.coord[,1], begin.coord[,2], end.coord[,1], end.coord[,2],
+           owin(range(c(begin.coord[,1], end.coord[,1])), range(c(begin.coord[,2], end.coord[,2]))))
+  
+  p<-as(p, "SpatialLines")
+  # get intervals for legend displaying
+  inv <- classIntervals(fdom$fij,n=3,style="jenks")
+  
+  # add the ploylines onto the leaflet with corresponding weight with proper legend
+  map <<- addPolylines(map, data=p,weight = fdom$width,col='black', opacity = 1, group = "Segments",
+                       label = paste("Flow to Dominant:", fdom$fij),
+                       highlightOptions = highlightOptions(color = "white",bringToFront = FALSE))%>%
+  addLegendCustom(colors = c("black", "black", "black","black"), labels = inv$brks, sizes = c(4,6,8,10),
+                  title="Size proportional to flows", opacity = 1)
+  
+  # layer controls
   map <<- addLayersControl(map, overlayGroups = c("Points", "Segments", "Basemap"))
   
 }
@@ -169,8 +190,10 @@ shinyServer(function(input, output, session){
         ride_data$BOARDING_STOP_STN <- c(as.character(ride_data$BOARDING_STOP_STN))
         ride_data$ALIGHTING_STOP_STN <- c(as.character(ride_data$ALIGHTING_STOP_STN))
         
-        processed_data <- inner_join(ride_data,busstop_data,by=c("BOARDING_STOP_STN"="BUS_STOP_N"),suffix=c(".BOARDING",".ALIGHTING"))
-        processed_data <- inner_join(processed_data,busstop_data,by=c("ALIGHTING_STOP_STN"="BUS_STOP_N"),suffix=c(".BOARDING",".ALIGHTING"))
+        processed_data <- inner_join(ride_data,busstop_data,
+                                     by=c("BOARDING_STOP_STN"="BUS_STOP_N"),suffix=c(".BOARDING",".ALIGHTING"))
+        processed_data <- inner_join(processed_data,busstop_data,
+                                     by=c("ALIGHTING_STOP_STN"="BUS_STOP_N"),suffix=c(".BOARDING",".ALIGHTING"))
         original_data <<- processed_data
         
         cat("file name =",inFile$name)
@@ -185,8 +208,10 @@ shinyServer(function(input, output, session){
         ride_data$BOARDING_STOP_STN <- c(as.character(ride_data$BOARDING_STOP_STN))
         ride_data$ALIGHTING_STOP_STN <- c(as.character(ride_data$ALIGHTING_STOP_STN))
         
-        processed_data <- inner_join(ride_data,busstop_data,by=c("BOARDING_STOP_STN"="BUS_STOP_N"),suffix=c(".BOARDING",".ALIGHTING"))
-        processed_data <- inner_join(processed_data,busstop_data,by=c("ALIGHTING_STOP_STN"="BUS_STOP_N"),suffix=c(".BOARDING",".ALIGHTING"))
+        processed_data <- inner_join(ride_data,busstop_data,
+                                     by=c("BOARDING_STOP_STN"="BUS_STOP_N"),suffix=c(".BOARDING",".ALIGHTING"))
+        processed_data <- inner_join(processed_data,busstop_data,
+                                     by=c("ALIGHTING_STOP_STN"="BUS_STOP_N"),suffix=c(".BOARDING",".ALIGHTING"))
         
         processed_data <<- process_ride_data()(processed_data,type)
         selected_type <<- type
@@ -247,14 +272,16 @@ shinyServer(function(input, output, session){
   create_matrix <- reactive(function(process_ride_data,type,dates){
     if (type == "P_AREA"){
       
-      mat <- data.frame ( table ( process_ride_data@data$BOARDING_AREA, process_ride_data@data$ALIGHTING_AREA,dnn = c("PLN_AREA_N","jname")))
+      mat <- data.frame ( table ( process_ride_data@data$BOARDING_AREA, 
+                                  process_ride_data@data$ALIGHTING_AREA,dnn = c("PLN_AREA_N","jname")))
       mat <- merge(x = mat, y = plan_area_sdf@data[c("PLN_AREA_N", "OBJECTID")], by = "PLN_AREA_N", all.x=TRUE)
       mat <- plyr::rename(mat, c("PLN_AREA_N"="iname", "jname" = "PLN_AREA_N", "Freq" = "fij", "OBJECTID" = "i"))
       mat <- merge(x = mat, y = plan_area_sdf@data[c("PLN_AREA_N", "OBJECTID")], by = "PLN_AREA_N", all.x=TRUE)
       mat <-  plyr::rename(mat, c("PLN_AREA_N"="jname","OBJECTID"= "j" ))
       
     }else{
-      mat <- data.frame ( table ( process_ride_data@data$BOARDING_AREA, process_ride_data@data$ALIGHTING_AREA,dnn = c("SUBZONE_N","jname")))
+      mat <- data.frame ( table ( process_ride_data@data$BOARDING_AREA, 
+                                  process_ride_data@data$ALIGHTING_AREA,dnn = c("SUBZONE_N","jname")))
       mat <- merge(x = mat, y = sub_zone_sdf@data[c("SUBZONE_N", "OBJECTID")], by = "SUBZONE_N", all.x=TRUE)
       mat <- plyr::rename(mat, c("SUBZONE_N"="iname", "jname" = "SUBZONE_N", "Freq" = "fij", "OBJECTID" = "i"))
       mat <- merge(x = mat, y = sub_zone_sdf@data[c("SUBZONE_N", "OBJECTID")], by = "SUBZONE_N", all.x=TRUE)
@@ -281,11 +308,11 @@ shinyServer(function(input, output, session){
     # Node weights
     inflows <<- data.frame(id = colnames(myflows), w = colSums(myflows))
     
-    # Plot dominant flows map
-    map <<- leaflet() %>% setView(lng = 103.8517, lat = 1.2908, zoom = 11) %>% addProviderTiles(providers$OpenStreetMap, options = providerTileOptions(minZoom=11, maxZoom=15))
+    # Plot basemap using OSM
+    map <<- leaflet() %>% setView(lng = 103.8517, lat = 1.2908, zoom = 11) %>% 
+      addProviderTiles(providers$OpenStreetMap, options = providerTileOptions(minZoom=11, maxZoom=15))
     
     if (type == "P_AREA"){
-      #proj4string(plan_area_sdf2) <- CRS("+proj=utm +ellps=WGS84 +datum=WGS84")
       plan_area_sdf2 <- spTransform(plan_area_sdf2, CRS("+proj=longlat"))
       map <<- addPolygons(map,data=plan_area_sdf2,weight=1,col = 'blue',opacity = 1, 
                           fill = TRUE, fillColor = 'blue', fillOpacity = 0.5,
@@ -298,9 +325,7 @@ shinyServer(function(input, output, session){
                        wvar = "w", wcex = 0.05)
       
     }else{
-      #proj4string(sub_zone_sdf2) <- CRS("+proj=utm +ellps=WGS84 +datum=WGS84")
       sub_zone_sdf2 <- spTransform(sub_zone_sdf2, CRS("+proj=longlat"))
-      
       map <<- addPolygons(map,data=sub_zone_sdf2,weight=1,col = 'blue',opacity = 1, 
                           fill = TRUE, fillColor = 'blue', fillOpacity = 0.5,
                           label = sub_zone_sdf2$SUBZONE_N,
