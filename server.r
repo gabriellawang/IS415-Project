@@ -1,5 +1,6 @@
 #------------------------------Check Installation------------------------------------------
-packages <- c("maptools", "plyr", "dplyr", "rgdal", "sp", "flows", "data.table", "stats",
+packages <- c("maptools", "plyr", "dplyr", "rgdal", "sp", "flows", "data.table", "stats", 
+              #"htmlwidgets",
               "shiny", "plotly", "leaflet", "shinydashboard", "DT", "spatstat", "classInt")
 if (length(setdiff(packages, rownames(installed.packages()))) > 0) {
   install.packages(setdiff(packages, rownames(installed.packages())))  
@@ -21,6 +22,7 @@ library(shinydashboard)
 library(DT)
 library(spatstat)
 library(classInt)
+#library(htmlwidgets)
 
 #------------------Set path----------------
 wd <- setwd(".")
@@ -28,7 +30,6 @@ setwd(wd)
 project_path <- wd
 shp_path <- "SHPFiles"
 attribute_path <- "attributeTables"
-
 
 #----------------------------------------------------- Perform Once ----------------------------------------------------
 plan_area_sdf2 <- readOGR(paste(project_path,sep = "/",paste(shp_path,sep = "/")),"MP14_PLNG_AREA_WEB_PL")
@@ -40,13 +41,12 @@ busstop_data$BUS_STOP_N <- c(as.character(busstop_data$BUS_STOP_N))
 
 #~~~~~~~~~!!! Define a default data set to read when running the app for the first time !!!~~~~~~~~~~~
 #data_file_name <<- "2016-02-16.csv"
-data_file_name <<- "two_days_data.csv"
-#data_file_name <<- "CITY_NATION_RIDE_DATA_FULL.csv"
+#data_file_name <<- "two_days_data.csv"
+data_file_name <<- "CITY_NATION_RIDE_DATA_FULL.csv"
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 global_date_1 <<- NULL
 global_date_2 <<- NULL
-
 
 ride_data <-  fread(paste(project_path,sep = "/",paste(attribute_path,sep = "/",data_file_name)))
 ride_data$RIDE_START_HOUR <- as.POSIXlt(ride_data$RIDE_START_TIME, format = "%H:%M:%S")$hour
@@ -116,6 +116,7 @@ plotMapDomFlows2 <- function(mat,original, spdf, spdfid, w, wid, wvar, wcex = 0.
   fdom <- merge(fdom, pts, by.x = "j", by.y = "id", all.x = T,
                 suffixes = c("i","j"))
   fdom$width <- (fdom$fij * 8 / (max(fdom$fij) - min(fdom$fij))) + 2
+  fdom2 <<- fdom
 
   # points color
   pts$col <- "green"
@@ -127,11 +128,32 @@ plotMapDomFlows2 <- function(mat,original, spdf, spdfid, w, wid, wvar, wcex = 0.
   
   internal <- diag(original)
   internal_flow <- data.frame(internal)
-  name <- row.names(internal_flow)
-  internal_flow <- data.frame(name, internal)
+  id <- row.names(internal_flow)
+  internal_flow <- data.frame(id, internal)
   
   # add internal flows data
-  pts <- merge(pts, internal_flow, by.x = "id", by.y = "name", all.x = T)
+  pts <- merge(pts, internal_flow, by.x = "id", by.y = "id", all.x = T)
+  
+  # add total flows data
+  total <- pts$var+pts$internal
+  id <- pts$id
+  total_flow <- data.frame(id, total)
+  pts <- merge(pts, total_flow, by.x ="id", by.y = "id", all.x = T)
+  
+  # add area names data
+  namelist <- names(spdf@data)
+  result <- contains("PLN_AREA_N", TRUE, namelist)
+  if(length(result) == 1){
+    #plan_area_sdf
+    area_name <- data.frame(spdf$OBJECTID, spdf$PLN_AREA_N)
+    area_name <- plyr::rename(area_name,c("spdf.OBJECTID"="OBJECTID","spdf.PLN_AREA_N"="AREA_N"))
+  }else{
+    #sub_zone_sdf
+    area_name <- data.frame(spdf$OBJECTID, spdf$SUBZONE_N)
+    area_name <- plyr::rename(area_name,c("spdfp.OBJECTID"="OBJECTID","spdf.SUBZONE_N"="AREA_N"))
+  }
+  area_name <- as.data.frame(area_name, stringsAsFactors = FALSE)
+  pts <<- merge(pts, area_name,by.x = "id", by.y = "OBJECTID", all.x = T)
   
   # add circles onto leaflet (represent the flow amount) with legend
   map <<- addCircles(map, lng = pts$long, lat = pts$lat,radius = pts$cex*80000,
@@ -170,6 +192,8 @@ plotMapDomFlows2 <- function(mat,original, spdf, spdfid, w, wid, wvar, wcex = 0.
   map <<- addLayersControl(map, baseGroups = c("OSM (default)", "WorldImagery"),
                            overlayGroups = c("Points", "Segments", "Basemap"))
   
+  #saveWidget(map, file=paste(paste(project_path,sep = "/",paste(shp_path,sep = "/")), date(), ".html"))
+  #m <- map
 }
 
 
@@ -294,7 +318,7 @@ shinyServer(function(input, output, session){
   })
   
   create_leaflet <- reactive(function(myflows, date, hour, k, type){
-    original <- myflows
+    original <<- myflows
     diag(myflows) <- 0
     # Select flows that represent at least 20% of the sum of outgoing flows for 
     # each urban area.
@@ -304,10 +328,10 @@ shinyServer(function(input, output, session){
     flowSel2 <- domflows(mat = myflows, w = colSums(myflows), k = 1)
     
     # Combine selections
-    flowSel <<- myflows * flowSel1 * flowSel2
+    flowSel <- myflows * flowSel1 * flowSel2
     
     # Node weights
-    inflows <<- data.frame(id = colnames(myflows), w = colSums(myflows))
+    inflows <- data.frame(id = colnames(myflows), w = colSums(myflows))
     
     # Plot basemap using OSM
     map <<- leaflet() %>% setView(lng = 103.8517, lat = 1.2908, zoom = 11) %>% 
