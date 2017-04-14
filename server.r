@@ -36,39 +36,31 @@ plan_area_sdf2 <- readOGR(paste(project_path,sep = "/",paste(shp_path,sep = "/")
 plan_area_sdf <- readShapePoly(paste(project_path,sep = "/",paste(shp_path,sep = "/","MP14_PLNG_AREA_WEB_PL.shp")))
 sub_zone_sdf2 <- readOGR(paste(project_path,sep = "/",paste(shp_path,sep = "/")),"MP14_SUBZONE_NO_SEA_PL")
 sub_zone_sdf <- readShapePoly(paste(project_path,sep = "/",paste(shp_path,sep = "/","MP14_SUBZONE_NO_SEA_PL.shp")))
-busstop_data <- read.csv(paste(project_path,sep = "/",paste(attribute_path,sep = "/","busstop.csv")),stringsAsFactors = FALSE)
+busstop_data <- read.csv(paste(project_path,sep = "/",paste(attribute_path,sep = "/","bus_stop.csv")),stringsAsFactors = FALSE)
 busstop_data$BUS_STOP_N <- c(as.character(busstop_data$BUS_STOP_N))
 
 #~~~~~~~~~!!! Define a default data set to read when running the app for the first time !!!~~~~~~~~~~~
-#data_file_name <<- "2016-02-16.csv"
+#data_file_name <<- "2016-02-15.csv"
 #data_file_name <<- "two_days_data.csv"
-data_file_name <<- "CITY_NATION_RIDE_DATA_FULL.csv"
+data_file_name <<- "2 hours data.csv"
+#data_file_name <<- "CITY_NATION_RIDE_DATA_FULL.csv"
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 global_date_1 <<- NULL
 global_date_2 <<- NULL
 
-ride_data <-  fread(paste(project_path,sep = "/",paste(attribute_path,sep = "/",data_file_name)))
-ride_data$RIDE_START_HOUR <- as.POSIXlt(ride_data$RIDE_START_TIME, format = "%H:%M:%S")$hour
-ride_data$BOARDING_STOP_STN <- c(as.character(ride_data$BOARDING_STOP_STN))
-ride_data$ALIGHTING_STOP_STN <- c(as.character(ride_data$ALIGHTING_STOP_STN))
+#ride_data <-  fread(paste(project_path,sep = "/",paste(attribute_path,sep = "/",data_file_name)))
+#ride_data$RIDE_START_HOUR <- as.POSIXlt(ride_data$RIDE_START_TIME, format = "%H:%M:%S")$hour
+#ride_data$BOARDING_STOP_STN <- c(as.character(ride_data$BOARDING_STOP_STN))
+#ride_data$ALIGHTING_STOP_STN <- c(as.character(ride_data$ALIGHTING_STOP_STN))
 
-processed_data <- inner_join(ride_data,busstop_data,by=c("BOARDING_STOP_STN"="BUS_STOP_N"),suffix=c(".BOARDING",".ALIGHTING"))
-processed_data <- inner_join(processed_data,busstop_data,by=c("ALIGHTING_STOP_STN"="BUS_STOP_N"),suffix=c(".BOARDING",".ALIGHTING"))
-original_data <<- processed_data
-#set boarding x y as point
-coordinates(processed_data)<-~X.BOARDING+Y.BOARDING
-processed_data$BOARDING_AREA <- over(processed_data,plan_area_sdf)$PLN_AREA_N
-
-
-#convert sub_data as df again.
-processed_data <- as.data.frame(processed_data)
-
-#set alighting x y as point
-coordinates(processed_data)<-~X.ALIGHTING+Y.ALIGHTING
-processed_data$ALIGHTING_AREA <- over(processed_data,plan_area_sdf)$PLN_AREA_N
-
+#processed_data <- inner_join(ride_data,busstop_data,by=c("BOARDING_STOP_STN"="BUS_STOP_N"),suffix=c(".BOARDING",".ALIGHTING"))
+#processed_data <- inner_join(processed_data,busstop_data,by=c("ALIGHTING_STOP_STN"="BUS_STOP_N"),suffix=c(".BOARDING",".ALIGHTING"))
 #original_data <<- processed_data
+#saveRDS(original_data, file = "original_data.rds", ascii = FALSE, version = NULL,compress = TRUE, refhook = NULL)
+processed_data <<- readRDS("original_data.rds")
+original_data <<- processed_data
+
 selected_type <<- "P_AREA"
 first_load <<- TRUE
 
@@ -117,7 +109,7 @@ plotMapDomFlows2 <- function(mat,original, spdf, spdfid, w, wid, wvar, wcex = 0.
                 suffixes = c("i","j"))
   fdom$width <- (fdom$fij * 8 / (max(fdom$fij) - min(fdom$fij))) + 2
   fdom2 <<- fdom
-
+  
   # points color
   pts$col <- "green"
   pts[pts$id %in% fdom$j & !pts$id %in% fdom$i, "col"] <- "red"
@@ -185,8 +177,8 @@ plotMapDomFlows2 <- function(mat,original, spdf, spdfid, w, wid, wvar, wcex = 0.
   map <<- addPolylines(map, data=p,weight = fdom$width,col='black', opacity = 1, group = "Segments",
                        label = paste("Flow to Dominant:", fdom$fij),
                        highlightOptions = highlightOptions(color = "white",bringToFront = FALSE))%>%
-  addLegendCustom(colors = c("black", "black", "black","black"), labels = inv$brks, sizes = c(4,6,8,10),
-                  title="Size proportional to flows", opacity = 1)
+    addLegendCustom(colors = c("black", "black", "black","black"), labels = inv$brks, sizes = c(4,6,8,10),
+                    title="Size proportional to flows", opacity = 1)
   
   # layer controls
   map <<- addLayersControl(map, baseGroups = c("OSM (default)", "WorldImagery"),
@@ -217,14 +209,24 @@ shinyServer(function(input, output, session){
         
         processed_data <- inner_join(ride_data,busstop_data,
                                      by=c("BOARDING_STOP_STN"="BUS_STOP_N"),suffix=c(".BOARDING",".ALIGHTING"))
-        processed_data <- inner_join(processed_data,busstop_data,
-                                     by=c("ALIGHTING_STOP_STN"="BUS_STOP_N"),suffix=c(".BOARDING",".ALIGHTING"))
+        processed_data <<- inner_join(processed_data,busstop_data,
+                                      by=c("ALIGHTING_STOP_STN"="BUS_STOP_N"),suffix=c(".BOARDING",".ALIGHTING"))
         original_data <<- processed_data
         
         cat("file name =",inFile$name)
         data_file_name <<- inFile$name
-        processed_data <<- process_ride_data()(processed_data,type)
+        #processed_data <<- process_ride_data()(processed_data,type)
         selected_type <<- type
+        dates <- unique(processed_data$RIDE_START_DATE)
+        updateSelectInput(session,"date_1",choices = dates,selected = dates[1])
+        updateSelectInput(session,"date_2",choices = dates,selected = dates[1])
+  
+        hours <-  unique(processed_data$RIDE_START_HOUR)
+        hours <- sort(hours, decreasing = FALSE)
+        
+        updateSelectInput(session,"hour_1",choices = hours,selected = hours[1])
+        updateSelectInput(session,"hour_2",choices = hours,selected = hours[1])
+        
       }else if  (selected_type != type){
         cat("Previous file upload, different type")
         
@@ -235,13 +237,14 @@ shinyServer(function(input, output, session){
         
         processed_data <- inner_join(ride_data,busstop_data,
                                      by=c("BOARDING_STOP_STN"="BUS_STOP_N"),suffix=c(".BOARDING",".ALIGHTING"))
-        processed_data <- inner_join(processed_data,busstop_data,
-                                     by=c("ALIGHTING_STOP_STN"="BUS_STOP_N"),suffix=c(".BOARDING",".ALIGHTING"))
+        processed_data <<- inner_join(processed_data,busstop_data,
+                                      by=c("ALIGHTING_STOP_STN"="BUS_STOP_N"),suffix=c(".BOARDING",".ALIGHTING"))
         
-        processed_data <<- process_ride_data()(processed_data,type)
+        #processed_data <<- process_ride_data()(processed_data,type)
         selected_type <<- type
         
       }
+     
       
     }else{
       #no input file
@@ -249,7 +252,7 @@ shinyServer(function(input, output, session){
         cat("No upload, different type  executed ")
         
         
-        processed_data <<- process_ride_data()(original_data,type)
+        #processed_data <<- process_ride_data()(original_data,type)
         selected_type <<- type
         
       }
@@ -257,56 +260,23 @@ shinyServer(function(input, output, session){
     return (processed_data)
   })
   
-  process_ride_data <- reactive(function(data_original, type){
-    cat("process_ride_data() executed ")
-    ride_data <- data_original
-    
-    #set boarding x y as point
-    if (type == "P_AREA"){
-      
-      coordinates(ride_data)<-~X.BOARDING+Y.BOARDING
-      ride_data$BOARDING_AREA <- over(ride_data,plan_area_sdf)$PLN_AREA_N
-      
-      
-      #convert sub_data as df again.
-      ride_data <- as.data.frame(ride_data)
-      
-      #set alighting x y as point
-      coordinates(ride_data)<-~X.ALIGHTING+Y.ALIGHTING
-      ride_data$ALIGHTING_AREA <- over(ride_data,plan_area_sdf)$PLN_AREA_N
-      
-    }else{
-      
-      coordinates(ride_data)<-~X.BOARDING+Y.BOARDING
-      ride_data$BOARDING_AREA <- over(ride_data,sub_zone_sdf)$SUBZONE_N
-      
-      
-      #convert sub_data as df again.
-      ride_data <- as.data.frame(ride_data)
-      
-      #set alighting x y as point
-      coordinates(ride_data)<-~X.ALIGHTING+Y.ALIGHTING
-      ride_data$ALIGHTING_AREA <- over(ride_data,sub_zone_sdf)$SUBZONE_N 
-    }
-    dates <-  unique(ride_data$RIDE_START_DATE)
-    updateSelectInput(session,"date_1",choices = dates,selected = dates[1])
-    updateSelectInput(session,"date_2",choices = dates,selected = dates[1])
-    ride_data
-  })
+  
   
   create_matrix <- reactive(function(process_ride_data,type,dates){
     if (type == "P_AREA"){
       
-      mat <- data.frame ( table ( process_ride_data@data$BOARDING_AREA, 
-                                  process_ride_data@data$ALIGHTING_AREA,dnn = c("PLN_AREA_N","jname")))
+      mat <- data.frame ( table ( process_ride_data$PLN_AREA_N.BOARDING, process_ride_data$PLN_AREA_N.ALIGHTING,dnn = c("PLN_AREA_N","jname")))
+      orange <<- process_ride_data
+
+      apple <<- mat
       mat <- merge(x = mat, y = plan_area_sdf@data[c("PLN_AREA_N", "OBJECTID")], by = "PLN_AREA_N", all.x=TRUE)
       mat <- plyr::rename(mat, c("PLN_AREA_N"="iname", "jname" = "PLN_AREA_N", "Freq" = "fij", "OBJECTID" = "i"))
       mat <- merge(x = mat, y = plan_area_sdf@data[c("PLN_AREA_N", "OBJECTID")], by = "PLN_AREA_N", all.x=TRUE)
       mat <-  plyr::rename(mat, c("PLN_AREA_N"="jname","OBJECTID"= "j" ))
       
     }else{
-      mat <- data.frame ( table ( process_ride_data@data$BOARDING_AREA, 
-                                  process_ride_data@data$ALIGHTING_AREA,dnn = c("SUBZONE_N","jname")))
+      mat <- data.frame ( table ( process_ride_data$SUBZONE_N.BOARDING, 
+                                  process_ride_data$SUBZONE_N.ALIGHTING,dnn = c("SUBZONE_N","jname")))
       mat <- merge(x = mat, y = sub_zone_sdf@data[c("SUBZONE_N", "OBJECTID")], by = "SUBZONE_N", all.x=TRUE)
       mat <- plyr::rename(mat, c("SUBZONE_N"="iname", "jname" = "SUBZONE_N", "Freq" = "fij", "OBJECTID" = "i"))
       mat <- merge(x = mat, y = sub_zone_sdf@data[c("SUBZONE_N", "OBJECTID")], by = "SUBZONE_N", all.x=TRUE)
@@ -451,7 +421,7 @@ shinyServer(function(input, output, session){
     mat1 <- create_matrix()(subset_data_1,input$type,date_1)
     myflows1 <- prepflows(mat = mat1, i = "i", j = "j", fij = "fij")
     
-    output$ride_table_1 <- renderDataTable(subset_data_1@data)
+    output$ride_table_1 <- renderDataTable(subset_data_1)
     output$flow_matrix_table_1 <- renderDataTable(mat1)
     create_leaflet()(myflows1,date_1, hour_1,K_1,input$type)
   })
@@ -508,7 +478,7 @@ shinyServer(function(input, output, session){
     mat2 <- create_matrix()(subset_data_2,input$type,date_2)
     myflows2 <- prepflows(mat = mat2, i = "i", j = "j", fij = "fij")
     
-    output$ride_table_2 <- renderDataTable(subset_data_2@data)
+    output$ride_table_2 <- renderDataTable(subset_data_2)
     output$flow_matrix_table_2 <- renderDataTable(mat2)
     
     create_leaflet()(myflows2,date_2,hour_2,K_2,input$type)
