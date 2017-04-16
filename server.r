@@ -221,7 +221,8 @@ shinyServer(function(input, output, session){
         updateSelectInput(session,"date_1",choices = dates,selected = dates[1])
         updateSelectInput(session,"date_2",choices = dates,selected = dates[1])
   
-        hours <-  unique(processed_data$RIDE_START_HOUR)
+		data <- subset(processed_data,RIDE_START_DATE %in% dates[1])
+        hours <-  unique(data$RIDE_START_HOUR)
         hours <- sort(hours, decreasing = FALSE)
         
         updateSelectInput(session,"hour_1",choices = hours,selected = hours[1])
