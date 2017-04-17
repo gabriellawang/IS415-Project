@@ -269,7 +269,6 @@ shinyServer(function(input, output, session){
       mat <- data.frame ( table ( process_ride_data$PLN_AREA_N.BOARDING, process_ride_data$PLN_AREA_N.ALIGHTING,dnn = c("PLN_AREA_N","jname")))
       orange <<- process_ride_data
 
-      apple <<- mat
       mat <- merge(x = mat, y = plan_area_sdf@data[c("PLN_AREA_N", "OBJECTID")], by = "PLN_AREA_N", all.x=TRUE)
       mat <- plyr::rename(mat, c("PLN_AREA_N"="iname", "jname" = "PLN_AREA_N", "Freq" = "fij", "OBJECTID" = "i"))
       mat <- merge(x = mat, y = plan_area_sdf@data[c("PLN_AREA_N", "OBJECTID")], by = "PLN_AREA_N", all.x=TRUE)
