@@ -41,8 +41,8 @@ busstop_data$BUS_STOP_N <- c(as.character(busstop_data$BUS_STOP_N))
 
 #~~~~~~~~~!!! Define a default data set to read when running the app for the first time !!!~~~~~~~~~~~
 #data_file_name <<- "2016-02-15.csv"
-#data_file_name <<- "two_days_data.csv"
-data_file_name <<- "2 hours data.csv"
+data_file_name <<- "two_days_data.csv"
+#data_file_name <<- "2 hours data.csv"
 #data_file_name <<- "CITY_NATION_RIDE_DATA_FULL.csv"
 #~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -91,7 +91,7 @@ plotMapDomFlows2 <- function(mat,original, spdf, spdfid, w, wid, wvar, wcex = 0.
   y2 <- bbbox[4]
   sfdc <- (x2-x1)*(y2-y1)
   sc <- sum(pts$var, na.rm=TRUE)
-  pts$cex <- sqrt((pts$var * wcex * sfdc / sc) / pi)
+  pts$cex <- sqrt((pts$var * wcex * sfdc / sc) / pi) * 100000
   pts <- pts[order(pts$cex,decreasing=TRUE),]
   pts <- pts[pts$cex > 0, ]
   
@@ -125,12 +125,13 @@ plotMapDomFlows2 <- function(mat,original, spdf, spdfid, w, wid, wvar, wcex = 0.
   
   # add internal flows data
   pts <- merge(pts, internal_flow, by.x = "id", by.y = "id", all.x = T)
-  
+  pts$cex_internal <- sqrt((pts$internal * wcex * sfdc / sc) / pi) * 100000
   # add total flows data
   total <- pts$var+pts$internal
   id <- pts$id
   total_flow <- data.frame(id, total)
   pts <- merge(pts, total_flow, by.x ="id", by.y = "id", all.x = T)
+  pts$cex_total <- sqrt((pts$total * wcex * sfdc / sc) / pi) * 100000
   
   # add area names data
   namelist <- names(spdf@data)
@@ -148,13 +149,27 @@ plotMapDomFlows2 <- function(mat,original, spdf, spdfid, w, wid, wvar, wcex = 0.
   pts <<- merge(pts, area_name,by.x = "id", by.y = "OBJECTID", all.x = T)
   
   # add circles onto leaflet (represent the flow amount) with legend
-  map <<- addCircles(map, lng = pts$long, lat = pts$lat,radius = pts$cex*80000,
+  map <<- addCircles(map, lng = pts$long, lat = pts$lat,radius = pts$cex,
                      fill = TRUE, fillColor = pts$col, color = "grey50", weight = 0.5,
-                     fillOpacity = 0.8, opacity = 1, group = "Points",
-                     label = paste("In-flow: ",pts$var,"| Internal Flow(within area): ",
-                                   pts$internal, "| Total: ",as.numeric(pts$var)+as.numeric(pts$internal)),
+                     fillOpacity = 0.8, opacity = 1, group = "In-flow",
+                     label = paste("In-flow: ",pts$var),
                      highlightOptions = highlightOptions(color = "white", weight = 1.5,
                                                          bringToFront = FALSE))
+  
+  map <<- addCircles(map, lng = pts$long, lat = pts$lat,radius = pts$cex_internal,
+                     fill = TRUE, fillColor = "green", color = "grey50", weight = 0.5,
+                     fillOpacity = 0.5, opacity = 1, group = "Internal Flow",
+                     label = paste("Internal Flow(within area): ", pts$internal),
+                     highlightOptions = highlightOptions(color = "white", weight = 1.5,
+                                                         bringToFront = FALSE)) %>% hideGroup("Internal Flow")
+  
+  map <<- addCircles(map, lng = pts$long, lat = pts$lat,radius = pts$cex_total,
+                     fill = TRUE, fillColor = "pink", color = "grey50", weight = 0.5,
+                     fillOpacity = 0.5, opacity = 1, group = "Total Flow",
+                     label = paste("Total: ",pts$total),
+                     highlightOptions = highlightOptions(color = "white", weight = 1.5,
+                                                         bringToFront = FALSE)) %>% hideGroup("Total Flow")
+  
   map <<- addLegend(map, position = "bottomleft", 
                     title = "Size proportional\nto sum of inflows",
                     colors = c("red","orange", "yellow"), opacity = 1,
@@ -182,7 +197,7 @@ plotMapDomFlows2 <- function(mat,original, spdf, spdfid, w, wid, wvar, wcex = 0.
   
   # layer controls
   map <<- addLayersControl(map, baseGroups = c("OSM (default)", "WorldImagery"),
-                           overlayGroups = c("Points", "Segments", "Basemap"))
+                           overlayGroups = c("In-flow", "Internal Flow", "Total Flow","Segments", "Basemap"))
   
   #saveWidget(map, file=paste(paste(project_path,sep = "/",paste(shp_path,sep = "/")), date(), ".html"))
   #m <- map
@@ -261,8 +276,6 @@ shinyServer(function(input, output, session){
     return (processed_data)
   })
   
-  
-  
   create_matrix <- reactive(function(process_ride_data,type,dates){
     if (type == "P_AREA"){
       
@@ -316,7 +329,8 @@ shinyServer(function(input, output, session){
                           fill = TRUE, fillColor = 'blue', fillOpacity = 0.5,
                           label = plan_area_sdf2$PLN_AREA_N,
                           group = "Basemap",
-                          highlightOptions = highlightOptions(color = "white", weight = 1.5,
+                          highlightOptions = highlightOptions(color = "white", fillColor = "white",
+                                                              fillOpacity = 0.5, weight = 1.5,
                                                               bringToFront = FALSE))
       
       plotMapDomFlows2(mat = flowSel,original, spdf = plan_area_sdf2, spdfid = "OBJECTID", w = inflows, wid = "id",
