@@ -64,7 +64,6 @@ original_data <<- processed_data
 selected_type <<- "P_AREA"
 first_load <<- TRUE
 
-
 addLegendCustom <- function(map, colors, labels, sizes, opacity = 0.5,title){
   colorAdditions <- paste0(colors, "; width:", 30, "px; height:", sizes, "px")
   labelAdditions <- paste0("<div style='display: inline-block;height: ", 
@@ -72,7 +71,6 @@ addLegendCustom <- function(map, colors, labels, sizes, opacity = 0.5,title){
   
   return(addLegend(map, title=title,colors = colorAdditions, labels = labelAdditions, opacity = opacity,position="bottomright"))
 }
-
 
 #replace the plotMapDomFlows function
 plotMapDomFlows2 <- function(mat,original, spdf, spdfid, w, wid, wvar, wcex = 0.05){
@@ -230,9 +228,17 @@ shinyServer(function(input, output, session){
         
         cat("file name =",inFile$name)
         data_file_name <<- inFile$name
-        #processed_data <<- process_ride_data()(processed_data,type)
         selected_type <<- type
         dates <- unique(processed_data$RIDE_START_DATE)
+        if(selected_type == "P_AREA"){
+          areas <- unique(processed_data$PLN_AREA_N.BOARDIN)
+        }else{
+          areas <- unique(processed_data$SUBZONE_N.BOARDIN)
+        }
+        
+        updateSelectInput(session, "date", choices = dates,selected = dates[1])
+        updateSelectInput(session, "area", choices = areas,selected = areas[1])
+        
         updateSelectInput(session,"date_1",choices = dates,selected = dates[1])
         updateSelectInput(session,"date_2",choices = dates,selected = dates[1])
   
@@ -255,22 +261,25 @@ shinyServer(function(input, output, session){
                                      by=c("BOARDING_STOP_STN"="BUS_STOP_N"),suffix=c(".BOARDING",".ALIGHTING"))
         processed_data <<- inner_join(processed_data,busstop_data,
                                       by=c("ALIGHTING_STOP_STN"="BUS_STOP_N"),suffix=c(".BOARDING",".ALIGHTING"))
-        
-        #processed_data <<- process_ride_data()(processed_data,type)
         selected_type <<- type
-        
+        if(selected_type == "P_AREA"){
+          areas <- unique(processed_data$PLN_AREA_N.BOARDIN)
+        }else{
+          areas <- unique(processed_data$SUBZONE_N.BOARDIN)
+        }
+        updateSelectInput(session, "area", choices = areas,selected = areas[1])
       }
-     
-      
     }else{
       #no input file
       if(selected_type != type){
         cat("No upload, different type  executed ")
-        
-        
-        #processed_data <<- process_ride_data()(original_data,type)
         selected_type <<- type
-        
+        if(selected_type == "P_AREA"){
+          areas <- unique(processed_data$PLN_AREA_N.BOARDIN)
+        }else{
+          areas <- unique(processed_data$SUBZONE_N.BOARDIN)
+        }
+        updateSelectInput(session, "area", choices = areas,selected = areas[1])
       }
     }
     return (processed_data)
@@ -366,6 +375,10 @@ shinyServer(function(input, output, session){
       
       if (first_load){
         dates <-  unique(processed_data$RIDE_START_DATE)
+        areas <- unique(processed_data$PLN_AREA_N.BOARDIN)
+        
+        updateSelectInput(session, "date", choices = dates,selected = dates[1])
+        updateSelectInput(session, "area", choices = areas,selected = areas[1])
         updateSelectInput(session,"date_1",choices = dates,selected = dates[1])
         updateSelectInput(session,"date_2",choices = dates,selected = dates[1])
         first_load <<- FALSE
@@ -403,6 +416,23 @@ shinyServer(function(input, output, session){
       }
     }
     
+  })
+  
+  output$daily_flow <- renderPlotly({
+    selected_area <- input$area
+    selected_date <- input$date
+    if(input$type == "P_AREA"){
+      area_data <- subset(processed_data, processed_data$PLN_AREA_N.BOARDING==selected_area & 
+                            processed_data$RIDE_START_DATE==selected_date)
+    }else{
+      area_data <- subset(processed_data, processed_data$SUBZONE_N.BOARDING==selected_area & 
+                            processed_data$RIDE_START_DATE==selected_date)
+    }
+    
+    flow_by_hour <- count(area_data, vars=RIDE_START_HOUR)
+    flow_by_hour <- plyr::rename(flow_by_hour, c("vars"="hours", "n"="flows"))
+    plot_ly(flow_by_hour, x=~hours, y=~flows,type = 'bar') %>%
+      layout(title=paste("Bus flows at",selected_area, "on", selected_date, sep=" "))
   })
   
   output$stat1 <- renderPlot({
