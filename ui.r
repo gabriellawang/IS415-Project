@@ -19,11 +19,12 @@ dashboardPage(
     div(style="overflow-y: scroll"),
     sidebarMenu(
       width = 300,
-      menuItem("Dashboard", tabName = "dashboard", icon = icon("dashboard")),
+      
       menuItem("Interactive Analysis - Flows", tabName = "interactive1", 
-               icon = icon("bar-chart", lib = "font-awesome")),
+               icon = icon("map", lib = "font-awesome")),
       menuItem("Interactive Analysis - Stats", tabName = "interactive2", 
                icon = icon("bar-chart", lib = "font-awesome")),
+      menuItem("Area Hourly Flow", tabName = "hourly", icon = icon("bus", lib = "font-awesome")),
       menuItem("Flow Matrix Data", tabName = "matrix", icon = icon("th")),
       menuItem("Ride Data", tabName = "ride", icon = icon("th")),
       fileInput(inputId="file1", "Choose File"),
@@ -39,36 +40,46 @@ dashboardPage(
         column(6,selectInput(inputId = "hour_1", label = "Hour 1", choices = NULL, multiple = FALSE, selectize = TRUE)),
         column(6,selectInput(inputId = "hour_2", label = "Hour 2", choices = NULL, multiple = FALSE, selectize = TRUE))
       ),
-      sliderInput(inputId = "K_1", label ="K 1", min = 5, max = 100, value = 20, step = 5),
-      sliderInput(inputId = "K_2", label ="K 2", min = 5, max = 100, value = 20, step = 5)
+      
+      fluidRow(
+        column(2),
+        column(10, "Select the flows that are at least"),
+        column(2),
+        column(10, "k% of the sum of all the flows"),
+        column(12, sliderInput(inputId = "K_1", label ="K1", min = 5, max = 100, value = 20, step = 5)),
+        column(12, sliderInput(inputId = "K_2", label ="K2", min = 5, max = 100, value = 20, step = 5))
+      )
     )
   ),
   
   dashboardBody(
     tabItems(
-      tabItem(tabName = "dashboard",
+      tabItem(tabName = "hourly",
               fluidRow(
                 box(
-                  title = "Area Daily Flow", solidHeader = TRUE,
+                  title = "Hourly Flow of Selected Area", solidHeader = TRUE,
                   collapsible = TRUE,
                   width = 6,
                   plotlyOutput("daily_flow")
                 ),
                 box(
-                  title = "Control",solidHeader = TRUE,
+                  title = "Bus Stops Hourly Boarding Flow", solidHeader = TRUE,
                   collapsible = TRUE,
-                  width = 3,
-                  selectInput(inputId = "date", label = "Date", choices = NULL, multiple = FALSE, selectize = TRUE),
-                  selectInput(inputId = "area", label = "Area", choices = NULL, multiple = FALSE, selectize = TRUE)
+                  width = 6,
+                  leafletOutput("area_leaflet")
                 )
+                
               ),
       fluidRow(
-              box(
-                title = "Bus Stop Flow", solidHeader = TRUE,
-                collapsible = TRUE,
-                width = 6,
-                leafletOutput("area_leaflet")
-              ))
+        box(
+          title = "Control Panel",solidHeader = TRUE,
+          collapsible = TRUE,
+          width = 3,
+          selectInput(inputId = "date", label = "Date", choices = NULL, multiple = FALSE, selectize = TRUE),
+          selectInput(inputId = "area", label = "Area", choices = NULL, multiple = FALSE, selectize = TRUE),
+          selectInput(inputId = "hour", label = "Hour", choices = NULL, multiple = FALSE, selectize = TRUE)
+        )
+              )
       ),
       
       tabItem(tabName = "interactive1", align = "center",
@@ -99,13 +110,13 @@ dashboardPage(
                 box(
                   title = h3("Statistic - 1"), solidHeader = TRUE,
                   collapsible = TRUE,
-                  plotOutput("stat1"),
+                  #plotOutput("stat1"),
                   plotlyOutput("plotCount1", height = 600)
                 ),
                 box(
                   title = h3("Statistic - 2"), solidHeader = TRUE,
                   collapsible = TRUE,
-                  plotOutput("stat2"),
+                  #plotOutput("stat2"),
                   plotlyOutput("plotCount2", height = 600)
                 )
               )

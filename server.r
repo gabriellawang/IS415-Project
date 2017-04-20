@@ -49,6 +49,7 @@ data_file_name <<- "two_days_data.csv"
 
 global_date_1 <<- NULL
 global_date_2 <<- NULL
+global_date <<- NULL
 
 #ride_data <-  fread(paste(project_path,sep = "/",paste(attribute_path,sep = "/",data_file_name)))
 #ride_data$RIDE_START_HOUR <- as.POSIXlt(ride_data$RIDE_START_TIME, format = "%H:%M:%S")$hour
@@ -236,17 +237,18 @@ shinyServer(function(input, output, session){
         }else{
           areas <- unique(processed_data$SUBZONE_N.BOARDIN)
         }
-        
+
         updateSelectInput(session, "date", choices = dates,selected = dates[1])
         updateSelectInput(session, "area", choices = areas,selected = areas[1])
         
         updateSelectInput(session,"date_1",choices = dates,selected = dates[1])
         updateSelectInput(session,"date_2",choices = dates,selected = dates[1])
   
-		data <- subset(processed_data,RIDE_START_DATE %in% dates[1])
+		    data <- subset(processed_data,RIDE_START_DATE %in% dates[1])
         hours <-  unique(data$RIDE_START_HOUR)
         hours <- sort(hours, decreasing = FALSE)
-        
+
+        updateSelectInput(session, "hour", choices = hours, selected = hours[1])
         updateSelectInput(session,"hour_1",choices = hours,selected = hours[1])
         updateSelectInput(session,"hour_2",choices = hours,selected = hours[1])
         
@@ -377,7 +379,7 @@ shinyServer(function(input, output, session){
       if (first_load){
         dates <- unique(processed_data$RIDE_START_DATE)
         areas <- unique(processed_data$PLN_AREA_N.BOARDIN)
-        
+
         updateSelectInput(session, "date", choices = dates,selected = dates[1])
         updateSelectInput(session, "area", choices = areas,selected = areas[1])
         updateSelectInput(session,"date_1",choices = dates,selected = dates[1])
@@ -392,6 +394,8 @@ shinyServer(function(input, output, session){
       
       date_2 <- input$date_2
       
+      date <- input$date
+      
       if (!is.null(date_1)){
         if (is.null(global_date_1) | length(setdiff(global_date_1,date_1)) > 0){
           global_date_1 <<- input$date_1
@@ -399,7 +403,7 @@ shinyServer(function(input, output, session){
           data <- subset(processed_ride_data,RIDE_START_DATE %in% date_1)
           hours <-  unique(data$RIDE_START_HOUR)
           hours <- sort(hours, decreasing = FALSE)
-          
+
           updateSelectInput(session,"hour_1",choices = hours,selected = hours[1])
         }
       }
@@ -415,8 +419,18 @@ shinyServer(function(input, output, session){
           updateSelectInput(session,"hour_2",choices = hours,selected = hours[1])
         }
       }
+      
+      if(!is.null(date)){
+        if(is.null(global_date) | length(setdiff(global_date,date)) > 0){
+          global_date <<- input$date
+          
+          data <- subset(processed_ride_data,RIDE_START_DATE %in% date)
+          hours <-  unique(data$RIDE_START_HOUR)
+          hours <- sort(hours, decreasing = FALSE)
+          updateSelectInput(session,"hour",choices = hours,selected = hours[1])
+        }
+      }
     }
-    
   })
   
   output$daily_flow <- renderPlotly({
@@ -440,15 +454,19 @@ shinyServer(function(input, output, session){
     req(input$date,input$date, cancelOutput = TRUE)
     selected_area <- input$area
     selected_date <- input$date
+    selected_hour <- input$hour
+    
     if(input$type == "P_AREA"){
       area_data <- subset(processed_data, processed_data$PLN_AREA_N.BOARDING==selected_area & 
-                            processed_data$RIDE_START_DATE==selected_date)
+                            processed_data$RIDE_START_DATE==selected_date & 
+                            processed_data$RIDE_START_HOUR==selected_hour)
       plan_area_sdf2 <- spTransform(plan_area_sdf2, CRS("+proj=longlat"))
       area_location <- subset(plan_area_sdf2, plan_area_sdf2$PLN_AREA_N==selected_area)
       area_location <- sp::coordinates(area_location)
     }else{
       area_data <- subset(processed_data, processed_data$SUBZONE_N.BOARDING==selected_area & 
-                            processed_data$RIDE_START_DATE==selected_date)
+                            processed_data$RIDE_START_DATE==selected_date & 
+                            processed_data$RIDE_START_HOUR==selected_hour)
       sub_zone_sdf2 <- spTransform(sub_zone_sdf2, CRS("+proj=longlat"))
       area_location <- subset(sub_zone_sdf2, sub_zone_sdf2$SUBZONE_N==selected_area)
       area_location <- sp::coordinates(area_location)
