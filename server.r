@@ -39,6 +39,7 @@ sub_zone_sdf <- readShapePoly(paste(project_path,sep = "/",paste(shp_path,sep = 
 busstop_data <- read.csv(paste(project_path,sep = "/",paste(attribute_path,sep = "/","bus_stop.csv")),stringsAsFactors = FALSE)
 busstop_data$BUS_STOP_N <- c(as.character(busstop_data$BUS_STOP_N))
 
+
 #~~~~~~~~~!!! Define a default data set to read when running the app for the first time !!!~~~~~~~~~~~
 #data_file_name <<- "2016-02-15.csv"
 data_file_name <<- "two_days_data.csv"
@@ -374,7 +375,7 @@ shinyServer(function(input, output, session){
       processed_ride_data <- get_data()(NULL,input$type)
       
       if (first_load){
-        dates <-  unique(processed_data$RIDE_START_DATE)
+        dates <- unique(processed_data$RIDE_START_DATE)
         areas <- unique(processed_data$PLN_AREA_N.BOARDIN)
         
         updateSelectInput(session, "date", choices = dates,selected = dates[1])
@@ -433,6 +434,39 @@ shinyServer(function(input, output, session){
     flow_by_hour <- plyr::rename(flow_by_hour, c("vars"="hours", "n"="flows"))
     plot_ly(flow_by_hour, x=~hours, y=~flows,type = 'bar') %>%
       layout(title=paste("Bus flows at",selected_area, "on", selected_date, sep=" "))
+  })
+  
+  output$area_leaflet <- renderLeaflet({
+    req(input$date,input$date, cancelOutput = TRUE)
+    selected_area <- input$area
+    selected_date <- input$date
+    if(input$type == "P_AREA"){
+      area_data <- subset(processed_data, processed_data$PLN_AREA_N.BOARDING==selected_area & 
+                            processed_data$RIDE_START_DATE==selected_date)
+      plan_area_sdf2 <- spTransform(plan_area_sdf2, CRS("+proj=longlat"))
+      area_location <- subset(plan_area_sdf2, plan_area_sdf2$PLN_AREA_N==selected_area)
+      area_location <- sp::coordinates(area_location)
+    }else{
+      area_data <- subset(processed_data, processed_data$SUBZONE_N.BOARDING==selected_area & 
+                            processed_data$RIDE_START_DATE==selected_date)
+      sub_zone_sdf2 <- spTransform(sub_zone_sdf2, CRS("+proj=longlat"))
+      area_location <- subset(sub_zone_sdf2, sub_zone_sdf2$SUBZONE_N==selected_area)
+      area_location <- sp::coordinates(area_location)
+    }
+    
+    flow_by_stops <- count(area_data, vars = BOARDING_STOP_STN)
+    flow_by_stops <- plyr::rename(flow_by_stops, c("vars"="station", "n"="flows"))
+    busstop <- readOGR(paste(project_path,sep = "/",paste(shp_path,sep = "/")),"BusStop")
+    busstop <- spTransform(busstop, CRS("+proj=longlat"))
+    
+    busstop <- data.frame(busstop)
+    busstop$BUS_STOP_N <- as.vector(busstop$BUS_STOP_N)
+    flow_by_stops <- left_join(flow_by_stops, busstop, by=c("station"="BUS_STOP_N"), copy=T)
+    area_map <- leaflet() %>%addProviderTiles(providers$OpenStreetMap, 
+                                              options = providerTileOptions(minZoom=13, maxZoom=16))%>% 
+      setView(lng=area_location[1],lat=area_location[2],zoom=13)
+    area_map <- addMarkers(area_map, lng=flow_by_stops$coords.x1,lat=flow_by_stops$coords.x2,
+                           label = flow_by_stops$flows)
   })
   
   output$stat1 <- renderPlot({

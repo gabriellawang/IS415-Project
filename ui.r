@@ -47,17 +47,27 @@ dashboardPage(
   dashboardBody(
     tabItems(
       tabItem(tabName = "dashboard",
-              fluidPage(
+              fluidRow(
                 box(
-                title = "Control",solidHeader = TRUE,
-                collapsible = TRUE,
-                selectInput(inputId = "date", label = "Date", choices = NULL, multiple = FALSE, selectize = TRUE),
-                selectInput(inputId = "area", label = "Area", choices = NULL, multiple = FALSE, selectize = TRUE)
+                  title = "Area Daily Flow", solidHeader = TRUE,
+                  collapsible = TRUE,
+                  width = 6,
+                  plotlyOutput("daily_flow")
+                ),
+                box(
+                  title = "Control",solidHeader = TRUE,
+                  collapsible = TRUE,
+                  width = 3,
+                  selectInput(inputId = "date", label = "Date", choices = NULL, multiple = FALSE, selectize = TRUE),
+                  selectInput(inputId = "area", label = "Area", choices = NULL, multiple = FALSE, selectize = TRUE)
+                )
               ),
+      fluidRow(
               box(
-                title = "Area Daily Flow", solidHeader = TRUE,
+                title = "Bus Stop Flow", solidHeader = TRUE,
                 collapsible = TRUE,
-                plotlyOutput("daily_flow")
+                width = 6,
+                leafletOutput("area_leaflet")
               ))
       ),
       
