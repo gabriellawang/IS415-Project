@@ -466,7 +466,7 @@ shinyServer(function(input, output, session){
                                               options = providerTileOptions(minZoom=13, maxZoom=16))%>% 
       setView(lng=area_location[1],lat=area_location[2],zoom=13)
     area_map <- addMarkers(area_map, lng=flow_by_stops$coords.x1,lat=flow_by_stops$coords.x2,
-                           label = flow_by_stops$flows)
+                           label = as.character(flow_by_stops$flows))
   })
   
   output$stat1 <- renderPlot({
