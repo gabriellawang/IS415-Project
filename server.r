@@ -1,6 +1,5 @@
 #------------------------------Check Installation------------------------------------------
 packages <- c("maptools", "plyr", "dplyr", "rgdal", "sp", "flows", "data.table", "stats", 
-              #"htmlwidgets",
               "shiny", "plotly", "leaflet", "shinydashboard", "DT", "spatstat", "classInt")
 if (length(setdiff(packages, rownames(installed.packages()))) > 0) {
   install.packages(setdiff(packages, rownames(installed.packages())))  
@@ -22,7 +21,6 @@ library(shinydashboard)
 library(DT)
 library(spatstat)
 library(classInt)
-#library(htmlwidgets)
 
 #------------------Set path----------------
 wd <- setwd(".")
@@ -39,18 +37,13 @@ sub_zone_sdf <- readShapePoly(paste(project_path,sep = "/",paste(shp_path,sep = 
 busstop_data <- read.csv(paste(project_path,sep = "/",paste(attribute_path,sep = "/","bus_stop.csv")),stringsAsFactors = FALSE)
 busstop_data$BUS_STOP_N <- c(as.character(busstop_data$BUS_STOP_N))
 
-
-#~~~~~~~~~!!! Define a default data set to read when running the app for the first time !!!~~~~~~~~~~~
-#data_file_name <<- "2016-02-15.csv"
-data_file_name <<- "two_days_data.csv"
-#data_file_name <<- "2 hours data.csv"
-#data_file_name <<- "CITY_NATION_RIDE_DATA_FULL.csv"
-#~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
 global_date_1 <<- NULL
 global_date_2 <<- NULL
 global_date <<- NULL
 
+#-----------uncomment the following code if you wish to use csv file and generate the rds file---------------
+#-----------put the CITY_NATION_RIDE_DATA_FULL.csv under the attributeTables folder inside the project file---------
+#data_file_name <<- "CITY_NATION_RIDE_DATA_FULL.csv"
 #ride_data <-  fread(paste(project_path,sep = "/",paste(attribute_path,sep = "/",data_file_name)))
 #ride_data$RIDE_START_HOUR <- as.POSIXlt(ride_data$RIDE_START_TIME, format = "%H:%M:%S")$hour
 #ride_data$BOARDING_STOP_STN <- c(as.character(ride_data$BOARDING_STOP_STN))
@@ -60,8 +53,12 @@ global_date <<- NULL
 #processed_data <- inner_join(processed_data,busstop_data,by=c("ALIGHTING_STOP_STN"="BUS_STOP_N"),suffix=c(".BOARDING",".ALIGHTING"))
 #original_data <<- processed_data
 #saveRDS(original_data, file = "original_data.rds", ascii = FALSE, version = NULL,compress = TRUE, refhook = NULL)
+#---------------------------finished----------------------------------------------------------------------------
+
+#------------comment the following code if you wish to use csv file-----------
 processed_data <<- readRDS("original_data.rds")
 original_data <<- processed_data
+#------------------------------------------------------------------------------
 
 selected_type <<- "P_AREA"
 first_load <<- TRUE
@@ -198,9 +195,6 @@ plotMapDomFlows2 <- function(mat,original, spdf, spdfid, w, wid, wvar, wcex = 0.
   # layer controls
   map <<- addLayersControl(map, baseGroups = c("OSM (default)", "WorldImagery"),
                            overlayGroups = c("In-flow", "Internal Flow", "Total Flow","Segments", "Basemap"))
-  
-  #saveWidget(map, file=paste(paste(project_path,sep = "/",paste(shp_path,sep = "/")), date(), ".html"))
-  #m <- map
 }
 
 

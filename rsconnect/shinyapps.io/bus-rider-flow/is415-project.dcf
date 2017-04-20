@@ -3,9 +3,9 @@ title: IS415-Project
 account: bus-rider-flow
 server: shinyapps.io
 appId: 170712
-bundleId: 789379
+bundleId: 796844
 url: https://bus-rider-flow.shinyapps.io/is415-project/
-when: 1492178764.11024
+when: 1492702157.1148
 asMultiple: FALSE
 asStatic: FALSE
 ignoredFiles: attributeTables/.DS_Store
